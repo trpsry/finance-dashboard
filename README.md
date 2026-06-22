@@ -1,4 +1,4 @@
-# FinanceDashboard
+# Dashboard
 
 Mobile-first finance dashboard split into:
 
@@ -15,8 +15,8 @@ Mobile-first finance dashboard split into:
 
 - `Transactions` - รายจ่ายที่บันทึกจากช่อง all-in-one
 - `MonthlyIncome` - รายรับจริงรายเดือน
-- `DebtSchedule` - ยอดหนี้ ShopeePay, ShopeecrAsh, กสิกร
-- `Categories` - หมวดรายจ่ายที่ frontend อ่านไปทำ chips/dropdown
+- `DebtSchedule` - ยอดหนี้ ShopeePay, ShopeeEasy, กสิกร
+- `Categories` - หมวดรายจ่ายที่ frontend อ่านไปทำ chips/dropdown: ShopeePay, ShopeeEasy, อื่นๆ
 - `FixedExpenses` - ค่าใช้จ่ายคงที่ที่ใช้คำนวณสรุป
 - `Settings` - ค่า config เช่น รายรับประมาณการ, timezone, payday
 

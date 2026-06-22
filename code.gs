@@ -25,11 +25,9 @@ const FIXED_HEADERS       = ['fixedKey','label','amount','active','sortOrder','n
 const SETTINGS_HEADERS    = ['key','value','note'];
 
 const DEFAULT_CATEGORIES = [
-  ['debt','หนี้สิน','expense','#ff595e',true,10],
-  ['fixed','รายจ่ายคงที่','expense','#ff9f1c',true,20],
-  ['food','อาหาร','expense','#6bc45f',true,30],
-  ['transport','เดินทาง','expense','#4d96ff',true,40],
-  ['other','อื่นๆ','expense','#aeb7c8',true,50]
+  ['shopeePay','ShopeePay','expense','#8fa2ff',true,10],
+  ['shopeeEasy','ShopeeEasy','expense','#4d96ff',true,20],
+  ['other','อื่นๆ','expense','#aeb7c8',true,30]
 ];
 
 const DEFAULT_FIXED_EXPENSES = [
@@ -87,7 +85,7 @@ function doGet(e) {
   }
   return HtmlService
     .createHtmlOutputFromFile('index')
-    .setTitle('แดชบอร์ดการเงิน')
+    .setTitle('Dashboard')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
 }
@@ -473,7 +471,7 @@ function normalizeDebtKind(kind) {
 
 function getDebtLabel(kind) {
   if (kind === SHEET_SHOPEEPAY) return 'ShopeePay';
-  if (kind === SHEET_SHOPEECRASH) return 'ShopeecrAsh';
+  if (kind === SHEET_SHOPEECRASH) return 'ShopeeEasy';
   if (kind === SHEET_KASIKORN) return 'กสิกร';
   return kind;
 }

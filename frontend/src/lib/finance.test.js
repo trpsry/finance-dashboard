@@ -13,16 +13,16 @@ const rawDashboard = {
   ],
   incomes: { may: 25000, jun: null },
   extras: [
-    { id: '1', date: '16/05/2567', note: 'ข้าวผัดกุ้ง', amount: 120, monthKey: 'may', category: 'food' },
-    { id: '2', date: '16/05/2567', note: 'ค่าโดยสาร BTS', amount: 42, monthKey: 'may', category: 'transport' },
+    { id: '1', date: '16/05/2567', note: 'ยอด ShopeePay', amount: 120, monthKey: 'may', category: 'shopeePay' },
+    { id: '2', date: '16/05/2567', note: 'ยอด ShopeeEasy', amount: 42, monthKey: 'may', category: 'shopeeEasy' },
     { id: 'legacy', date: '15/05/2567', note: 'ของเดิม', amount: 300, monthKey: 'may' },
   ],
   debtShopeePay: [{ monthKey: 'may', monthLabel: 'พ.ค. 67', amount: 1500, updatedAt: '15/05/2567' }],
   debtShopeecrAsh: [{ monthKey: 'may', monthLabel: 'พ.ค. 67', amount: 700, updatedAt: '15/05/2567' }],
   debtKasikorn: [{ monthKey: 'may', monthLabel: 'พ.ค. 67', amount: 2500, updatedAt: '15/05/2567' }],
   categories: [
-    { categoryKey: 'food', label: 'กินข้าว', color: '#11aa55', active: true, sortOrder: 10 },
-    { categoryKey: 'transport', label: 'เดินทาง', color: '#4d96ff', active: true, sortOrder: 20 },
+    { categoryKey: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff', active: true, sortOrder: 10 },
+    { categoryKey: 'shopeeEasy', label: 'ShopeeEasy', color: '#4d96ff', active: true, sortOrder: 20 },
     { categoryKey: 'other', label: 'อื่นๆ', color: '#aeb7c8', active: true, sortOrder: 30 },
     { categoryKey: 'hidden', label: 'ปิดไว้', color: '#000000', active: false, sortOrder: 40 },
   ],
@@ -53,8 +53,8 @@ describe('normalizeDashboard', () => {
     const dashboard = normalizeDashboard(rawDashboard);
 
     expect(dashboard.categories).toEqual([
-      expect.objectContaining({ key: 'food', label: 'กินข้าว', color: '#11aa55' }),
-      expect.objectContaining({ key: 'transport' }),
+      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' }),
+      expect.objectContaining({ key: 'shopeeEasy' }),
       expect.objectContaining({ key: 'other' }),
     ]);
     expect(dashboard.categories.some((item) => item.key === 'hidden')).toBe(false);
@@ -105,8 +105,8 @@ describe('buildCategoryBreakdown', () => {
     const breakdown = buildCategoryBreakdown(dashboard.expenses, 'may', dashboard.categories);
 
     expect(breakdown).toEqual([
-      expect.objectContaining({ key: 'food', label: 'กินข้าว', amount: 120 }),
-      expect.objectContaining({ key: 'transport', label: 'เดินทาง', amount: 42 }),
+      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', amount: 120 }),
+      expect.objectContaining({ key: 'shopeeEasy', label: 'ShopeeEasy', amount: 42 }),
       expect.objectContaining({ key: 'other', label: 'อื่นๆ', amount: 300 }),
     ]);
   });

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Banknote,
-  Bus,
   CalendarDays,
   ChevronDown,
   CircleEllipsis,
   CreditCard,
-  Home,
   Landmark,
   Plus,
   ReceiptText,
@@ -14,7 +12,6 @@ import {
   Settings,
   Tag,
   Trash2,
-  Utensils,
   Wallet,
 } from 'lucide-react';
 import {
@@ -26,16 +23,14 @@ import {
 } from './lib/finance.js';
 
 const CATEGORY_ICONS = {
-  debt: CreditCard,
-  fixed: Home,
-  food: Utensils,
-  transport: Bus,
+  shopeePay: CreditCard,
+  shopeeEasy: Wallet,
   other: CircleEllipsis,
 };
 
 const DEBT_OPTIONS = [
   { key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' },
-  { key: 'shopeeCrash', label: 'ShopeecrAsh', color: '#4d96ff' },
+  { key: 'shopeeCrash', label: 'ShopeeEasy', color: '#4d96ff' },
   { key: 'kasikorn', label: 'กสิกร', color: '#00a950' },
 ];
 
@@ -257,7 +252,7 @@ function SummaryGrid({ summary, loading }) {
 function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, compact = false, saving, onSubmit }) {
   const [amount, setAmount] = useState('');
   const [monthKey, setMonthKey] = useState(defaultMonth);
-  const [category, setCategory] = useState(categories.find((item) => item.key === 'food')?.key || categories[0]?.key || 'other');
+  const [category, setCategory] = useState(categories.find((item) => item.key === 'shopeePay')?.key || categories[0]?.key || 'other');
   const [note, setNote] = useState('');
   const selectedCategory = categories.find((item) => item.key === category) || categories[0] || CATEGORY_OPTIONS[0];
 
@@ -267,7 +262,7 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
 
   useEffect(() => {
     if (!categories.some((item) => item.key === category)) {
-      setCategory(categories.find((item) => item.key === 'food')?.key || categories[0]?.key || 'other');
+      setCategory(categories.find((item) => item.key === 'shopeePay')?.key || categories[0]?.key || 'other');
     }
   }, [categories, category]);
 
@@ -494,7 +489,7 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
         <Landmark size={20} />
         <div>
           <h2>ยอดหนี้รายเดือน</h2>
-          <p>ShopeePay, ShopeecrAsh และกสิกร</p>
+          <p>ShopeePay, ShopeeEasy และกสิกร</p>
         </div>
       </div>
       <div className="form-grid">

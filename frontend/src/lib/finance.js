@@ -10,10 +10,8 @@ export const FIXED_EXPENSES = {
 export const FIXED_TOTAL = Object.values(FIXED_EXPENSES).reduce((sum, value) => sum + value, 0);
 
 export const CATEGORY_OPTIONS = [
-  { key: 'debt', label: 'หนี้สิน', color: '#ff595e' },
-  { key: 'fixed', label: 'รายจ่ายคงที่', color: '#ff9f1c' },
-  { key: 'food', label: 'อาหาร', color: '#6bc45f' },
-  { key: 'transport', label: 'เดินทาง', color: '#4d96ff' },
+  { key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' },
+  { key: 'shopeeEasy', label: 'ShopeeEasy', color: '#4d96ff' },
   { key: 'other', label: 'อื่นๆ', color: '#aeb7c8' },
 ];
 

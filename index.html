@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0d0f14">
-<title>แดชบอร์ดการเงิน</title>
+<title>Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -256,7 +256,7 @@ select{cursor:pointer;}
 <body>
 
 <div class="header">
-  <h1>💰 แดชบอร์ดการเงิน</h1>
+  <h1>💰 Dashboard</h1>
   <p id="header-sub">กำลังโหลด...</p>
 </div>
 
@@ -311,7 +311,7 @@ select{cursor:pointer;}
 </div>
 
 <div class="card debt-card-crash" id="shopeecrash-box">
-  <div class="card-title">💸 ShopeecrAsh</div>
+  <div class="card-title">💸 ShopeeEasy</div>
   <div class="debt-form">
     <div>
       <div class="debt-row-label">เลือกเดือน</div>
@@ -321,7 +321,7 @@ select{cursor:pointer;}
       <div class="debt-row-label">ยอดชำระ (฿)</div>
       <input type="number" id="sc-amt" inputmode="decimal" placeholder="0" min="0" step="1">
     </div>
-    <button class="btn btn-full" style="background:var(--blue);color:#0d0f14;font-weight:700;" onclick="handleSaveShopeecrAsh()">บันทึก ShopeecrAsh</button>
+    <button class="btn btn-full" style="background:var(--blue);color:#0d0f14;font-weight:700;" onclick="handleSaveShopeecrAsh()">บันทึก ShopeeEasy</button>
   </div>
   <div class="debt-list" id="sc-list"><div class="debt-empty">ยังไม่มีข้อมูล</div></div>
 </div>
@@ -523,9 +523,9 @@ function buildMonthPanel(m) {
                color:var(--text);font-family:'Sarabun',sans-serif;font-size:.88rem;
                padding:10px 13px;width:100%;outline:none;cursor:pointer;">
         <option value="">🔍 ดูรายละเอียดรายจ่าย...</option>
-        <option value="debt">🔴 หนี้สิน (ShopeePay + ShopeecrAsh + กสิกร)</option>
-        <option value="fixed">🏠 รายจ่ายคงที่ (ค่าห้อง + เน็ต + บุหรี่ + น้ำมัน)</option>
-        <option value="extra">➕ รายจ่ายอื่นๆ (รายการที่บันทึกเพิ่มเอง)</option>
+        <option value="spay">🛒 ShopeePay</option>
+        <option value="seasy">💸 ShopeeEasy</option>
+        <option value="extra">➕ อื่นๆ (รายการที่บันทึกเพิ่มเอง)</option>
       </select>
 
       <!-- Breakdown: หนี้สิน -->
@@ -540,7 +540,7 @@ function buildMonthPanel(m) {
             <span class="v-red" id="mp-d-sp-${k}">—</span>
           </div>
           <div class="tbl-row r-debt">
-            <span>💸 ShopeecrAsh<br><span style="font-size:.68rem;color:var(--muted);">ยอดคืน Shopee Cash ที่กู้มา</span></span>
+            <span>💸 ShopeeEasy<br><span style="font-size:.68rem;color:var(--muted);">ยอดคืน Shopee Easy ที่กู้มา</span></span>
             <span class="v-red" id="mp-d-sc-${k}">—</span>
           </div>
           <div class="tbl-row r-debt">
@@ -732,7 +732,7 @@ function updateOverview(months, spByMonth, scByMonth, kasByMonth, extByMonth) {
   tbody.innerHTML =
     row('รายรับ',      'ov-income', c=>`<td>${(c.conf?'':'~')+fmt(c.inc)}</td>`) +
     row('ShopeePay',   'ov-debt',   c=>td(c.sp)) +
-    row('ShopeecrAsh', 'ov-debt',   c=>td(c.sc)) +
+    row('ShopeeEasy', 'ov-debt',   c=>td(c.sc)) +
     row('กสิกร',       'ov-debt',   c=>td(c.kas)) +
     row('คงที่รวม',    'ov-fixed',  ()=>`<td>${fmt(FIXED_TOTAL)}</td>`) +
     row('อื่นๆ',       'ov-extra',  c=>td(c.ext)) +
@@ -895,6 +895,7 @@ function handleDeleteExtra(id) {
 
 // ── BREAKDOWN TOGGLE ─────────────────────────────────────────
 function showBreakdown(monthKey, val) {
+  if (val === 'spay' || val === 'seasy') val = 'debt';
   ['debt','fixed','extra'].forEach(type => {
     const el = $('bd-'+type+'-'+monthKey);
     if (el) el.style.display = (val===type) ? 'block' : 'none';

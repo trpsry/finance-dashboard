@@ -28,14 +28,14 @@ describe('createApiClient', () => {
       },
     });
 
-    await client.addExpense({ note: 'กาแฟ', amount: 60, monthKey: 'may', category: 'food' });
+    await client.addExpense({ note: 'ShopeePay', amount: 60, monthKey: 'may', category: 'shopeePay' });
 
     expect(calls[0].url).toBe('https://script.google.com/macros/s/demo/exec');
     expect(calls[0].init.method).toBe('POST');
     expect(calls[0].init.headers['Content-Type']).toBe('text/plain;charset=utf-8');
     expect(JSON.parse(calls[0].init.body)).toEqual({
       action: 'addExpense',
-      payload: { note: 'กาแฟ', amount: 60, monthKey: 'may', category: 'food' },
+      payload: { note: 'ShopeePay', amount: 60, monthKey: 'may', category: 'shopeePay' },
     });
   });
 

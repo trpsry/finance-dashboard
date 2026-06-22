@@ -171,7 +171,7 @@ export default function App() {
           <Menu size={24} />
         </button>
         <div>
-          <h1>แดชบอร์ดการเงิน</h1>
+          <h1>Dashboard</h1>
           <p>{selectedMonthLabel}</p>
         </div>
         <button className="status-button" type="button" onClick={loadDashboard} aria-label="รีเฟรชข้อมูล">
