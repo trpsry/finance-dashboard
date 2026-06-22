@@ -439,6 +439,10 @@ function CategoryBreakdown({ dashboard, monthKey, monthLabel }) {
               </div>
             ))
           )}
+          <div className="breakdown-total-row">
+            <span>ยอดรวมรายจ่าย</span>
+            <strong>{formatBaht(total)} บาท</strong>
+          </div>
         </div>
       </div>
     </section>

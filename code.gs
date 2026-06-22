@@ -25,9 +25,9 @@ const FIXED_HEADERS       = ['fixedKey','label','amount','active','sortOrder','n
 const SETTINGS_HEADERS    = ['key','value','note'];
 
 const DEFAULT_CATEGORIES = [
-  ['shopeePay','ShopeePay','expense','#8fa2ff',true,10],
-  ['shopeeEasy','ShopeeEasy','expense','#4d96ff',true,20],
-  ['other','อื่นๆ','expense','#aeb7c8',true,30]
+  ['shopeePay','ShopeePay','expense','#ff9f1c',true,10],
+  ['shopeeEasy','ShopeeEasy','expense','#ffc878',true,20],
+  ['other','อื่นๆ','expense','#c9a8ff',true,30]
 ];
 
 const DEFAULT_FIXED_EXPENSES = [

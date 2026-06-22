@@ -20,10 +20,11 @@ import {
 
 const STORAGE_KEY = 'financeDashboard.gasEndpoint';
 const FALLBACK_GAS_ENDPOINT =
-  'https://script.google.com/macros/s/AKfycbwpRBYTptn3K8Yle7ayVlmhBfsiiaeMiuNEKB5Xxc8DoqOYZh5-ypgrZsFy1GxNKB0c/exec';
+  'https://script.google.com/macros/s/AKfycbyj-npPe8PsmTXJfi-8dnZhW7I4aE0nKtLhHnAJ8t8D3in9-4Ec-DYZNNvKV39vpPXy/exec';
 const DEFAULT_ENDPOINT = import.meta.env.VITE_GAS_ENDPOINT || FALLBACK_GAS_ENDPOINT;
 const STALE_GAS_ENDPOINTS = new Set([
   'https://script.google.com/macros/s/AKfycbxrmUfdb-eYY-m6vHJqvgKPGKETbhEPnntrzOXbAlWpIpJ_3LQhrbxEfBdOQAWYyLsM/exec',
+  'https://script.google.com/macros/s/AKfycbwpRBYTptn3K8Yle7ayVlmhBfsiiaeMiuNEKB5Xxc8DoqOYZh5-ypgrZsFy1GxNKB0c/exec',
 ]);
 
 const NAV_ITEMS = [

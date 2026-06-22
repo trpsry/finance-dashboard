@@ -9,10 +9,18 @@ export const FIXED_EXPENSES = {
 export const FIXED_TOTAL = Object.values(FIXED_EXPENSES).reduce((sum, value) => sum + value, 0);
 
 export const CATEGORY_OPTIONS = [
-  { key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' },
-  { key: 'shopeeEasy', label: 'ShopeeEasy', color: '#4d96ff' },
-  { key: 'other', label: 'อื่นๆ', color: '#aeb7c8' },
+  { key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c' },
+  { key: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878' },
+  { key: 'other', label: 'อื่นๆ', color: '#c9a8ff' },
 ];
+
+export const BREAKDOWN_COLORS = {
+  shopeePay: '#ff9f1c',
+  shopeeEasy: '#ffc878',
+  other: '#c9a8ff',
+  fixed: '#9edcff',
+  kasikorn: '#50c878',
+};
 
 export function formatBaht(value) {
   return Math.round(Number(value) || 0).toLocaleString('th-TH');
@@ -105,34 +113,42 @@ export function calculateMonthSummary(dashboard, monthKey) {
 }
 
 export function buildMonthlyBreakdown(dashboard, monthKey) {
-  const categoryRows = buildCategoryBreakdown(dashboard.expenses, monthKey, dashboard.categories);
+  const expenseTotals = buildCategoryTotals(dashboard.expenses, monthKey, dashboard.categories);
   const fixedTotal = calculateFixedTotal(dashboard.fixedExpenses);
-  const debtRows = [
+  const rows = [
     {
-      key: 'debt-shopeePay',
+      key: 'shopeePay',
       label: 'ShopeePay',
-      color: '#8fa2ff',
-      amount: sumDebtByMonth(dashboard.debtShopeePay, monthKey),
+      color: BREAKDOWN_COLORS.shopeePay,
+      amount: (expenseTotals.get('shopeePay') || 0) + sumDebtByMonth(dashboard.debtShopeePay, monthKey),
     },
     {
-      key: 'debt-shopeeEasy',
+      key: 'shopeeEasy',
       label: 'ShopeeEasy',
-      color: '#4d96ff',
-      amount: sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey),
+      color: BREAKDOWN_COLORS.shopeeEasy,
+      amount: (expenseTotals.get('shopeeEasy') || 0) + sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey),
+    },
+    {
+      key: 'other',
+      label: 'รายจ่ายอื่นๆ',
+      color: BREAKDOWN_COLORS.other,
+      amount: expenseTotals.get('other') || 0,
     },
     {
       key: 'debt-kasikorn',
       label: 'กสิกร',
-      color: '#00a950',
+      color: BREAKDOWN_COLORS.kasikorn,
       amount: sumDebtByMonth(dashboard.debtKasikorn, monthKey),
     },
-  ].filter((item) => item.amount > 0);
+    {
+      key: 'fixed',
+      label: 'รายจ่ายคงที่',
+      color: BREAKDOWN_COLORS.fixed,
+      amount: fixedTotal,
+    },
+  ];
 
-  const fixedRow = fixedTotal > 0
-    ? [{ key: 'fixed', label: 'รายจ่ายคงที่', color: '#ff9f1c', amount: fixedTotal }]
-    : [];
-
-  return [...categoryRows, ...debtRows, ...fixedRow];
+  return rows.filter((item) => item.amount > 0 || item.key === 'other');
 }
 
 function normalizeFixedExpenses(items) {
@@ -165,6 +181,17 @@ function calculateFixedTotal(items = []) {
 }
 
 export function buildCategoryBreakdown(expenses, monthKey, categories = CATEGORY_OPTIONS) {
+  const totals = buildCategoryTotals(expenses, monthKey, categories);
+
+  return categories
+    .map((category) => ({
+      ...category,
+      amount: totals.get(category.key) || 0,
+    }))
+    .filter((category) => category.amount > 0);
+}
+
+function buildCategoryTotals(expenses, monthKey, categories = CATEGORY_OPTIONS) {
   const totals = new Map(categories.map((category) => [category.key, 0]));
 
   expenses
@@ -174,12 +201,7 @@ export function buildCategoryBreakdown(expenses, monthKey, categories = CATEGORY
       totals.set(key, (totals.get(key) || 0) + expense.amount);
     });
 
-  return categories
-    .map((category) => ({
-      ...category,
-      amount: totals.get(category.key) || 0,
-    }))
-    .filter((category) => category.amount > 0);
+  return totals;
 }
 
 export function expensesForMonth(expenses, monthKey) {

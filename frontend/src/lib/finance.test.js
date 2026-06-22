@@ -22,9 +22,9 @@ const rawDashboard = {
   debtShopeecrAsh: [{ monthKey: 'may', monthLabel: 'พ.ค. 67', amount: 700, updatedAt: '15/05/2567' }],
   debtKasikorn: [{ monthKey: 'may', monthLabel: 'พ.ค. 67', amount: 2500, updatedAt: '15/05/2567' }],
   categories: [
-    { categoryKey: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff', active: true, sortOrder: 10 },
-    { categoryKey: 'shopeeEasy', label: 'ShopeeEasy', color: '#4d96ff', active: true, sortOrder: 20 },
-    { categoryKey: 'other', label: 'อื่นๆ', color: '#aeb7c8', active: true, sortOrder: 30 },
+    { categoryKey: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c', active: true, sortOrder: 10 },
+    { categoryKey: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878', active: true, sortOrder: 20 },
+    { categoryKey: 'other', label: 'อื่นๆ', color: '#c9a8ff', active: true, sortOrder: 30 },
     { categoryKey: 'hidden', label: 'ปิดไว้', color: '#000000', active: false, sortOrder: 40 },
   ],
 };
@@ -54,7 +54,7 @@ describe('normalizeDashboard', () => {
     const dashboard = normalizeDashboard(rawDashboard);
 
     expect(dashboard.categories).toEqual([
-      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' }),
+      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c' }),
       expect.objectContaining({ key: 'shopeeEasy' }),
       expect.objectContaining({ key: 'other' }),
     ]);
@@ -119,14 +119,21 @@ describe('buildMonthlyBreakdown', () => {
     const breakdown = buildMonthlyBreakdown(dashboard, 'may');
 
     expect(breakdown).toEqual([
-      expect.objectContaining({ key: 'shopeePay', amount: 120 }),
-      expect.objectContaining({ key: 'shopeeEasy', amount: 42 }),
-      expect.objectContaining({ key: 'other', amount: 300 }),
-      expect.objectContaining({ key: 'debt-shopeePay', amount: 1500 }),
-      expect.objectContaining({ key: 'debt-shopeeEasy', amount: 700 }),
-      expect.objectContaining({ key: 'debt-kasikorn', amount: 2500 }),
-      expect.objectContaining({ key: 'fixed', amount: 2850 }),
+      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c', amount: 1620 }),
+      expect.objectContaining({ key: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878', amount: 742 }),
+      expect.objectContaining({ key: 'other', label: 'รายจ่ายอื่นๆ', color: '#c9a8ff', amount: 300 }),
+      expect.objectContaining({ key: 'debt-kasikorn', label: 'กสิกร', color: '#50c878', amount: 2500 }),
+      expect.objectContaining({ key: 'fixed', label: 'รายจ่ายคงที่', color: '#9edcff', amount: 2850 }),
     ]);
+  });
+
+  it('keeps the other expense row visible even when the selected month has no other spend', () => {
+    const dashboard = normalizeDashboard(rawDashboard);
+    const breakdown = buildMonthlyBreakdown(dashboard, 'jun');
+
+    expect(breakdown).toContainEqual(
+      expect.objectContaining({ key: 'other', label: 'รายจ่ายอื่นๆ', amount: 0 }),
+    );
   });
 });
 

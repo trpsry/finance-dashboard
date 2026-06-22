@@ -485,6 +485,27 @@ button {
   gap: 10px;
 }
 
+.breakdown-total-row {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(174, 183, 200, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+}
+
+.breakdown-total-row span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.breakdown-total-row strong {
+  color: var(--text);
+  white-space: nowrap;
+}
+
 .legend {
   width: 10px;
   height: 10px;
