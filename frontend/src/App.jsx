@@ -20,8 +20,11 @@ import {
 
 const STORAGE_KEY = 'financeDashboard.gasEndpoint';
 const FALLBACK_GAS_ENDPOINT =
-  'https://script.google.com/macros/s/AKfycbxrmUfdb-eYY-m6vHJqvgKPGKETbhEPnntrzOXbAlWpIpJ_3LQhrbxEfBdOQAWYyLsM/exec';
+  'https://script.google.com/macros/s/AKfycbwpRBYTptn3K8Yle7ayVlmhBfsiiaeMiuNEKB5Xxc8DoqOYZh5-ypgrZsFy1GxNKB0c/exec';
 const DEFAULT_ENDPOINT = import.meta.env.VITE_GAS_ENDPOINT || FALLBACK_GAS_ENDPOINT;
+const STALE_GAS_ENDPOINTS = new Set([
+  'https://script.google.com/macros/s/AKfycbxrmUfdb-eYY-m6vHJqvgKPGKETbhEPnntrzOXbAlWpIpJ_3LQhrbxEfBdOQAWYyLsM/exec',
+]);
 
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'แดชบอร์ด', icon: Home },
@@ -34,7 +37,10 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [rawData, setRawData] = useState(null);
   const [activeMonth, setActiveMonth] = useState('');
-  const [endpoint, setEndpoint] = useState(() => localStorage.getItem(STORAGE_KEY) || DEFAULT_ENDPOINT);
+  const [endpoint, setEndpoint] = useState(() => {
+    const storedEndpoint = localStorage.getItem(STORAGE_KEY);
+    return !storedEndpoint || STALE_GAS_ENDPOINTS.has(storedEndpoint) ? DEFAULT_ENDPOINT : storedEndpoint;
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -143,6 +149,21 @@ export default function App() {
     patchRawData({ [map[kind]]: value });
   }
 
+  async function saveFixedExpense(payload) {
+    await withSave(async () => {
+      const fixedExpenses = await client.saveFixedExpense(payload);
+      patchRawData({ fixedExpenses });
+    }, 'บันทึกรายจ่ายคงที่แล้ว');
+  }
+
+  async function deleteFixedExpense(fixedKey) {
+    if (!window.confirm('ลบรายจ่ายคงที่นี้?')) return;
+    await withSave(async () => {
+      const fixedExpenses = await client.deleteFixedExpense({ fixedKey });
+      patchRawData({ fixedExpenses });
+    }, 'ลบรายจ่ายคงที่แล้ว');
+  }
+
   function saveEndpoint(nextEndpoint) {
     setEndpoint(nextEndpoint.trim());
     setNotice('บันทึก GAS endpoint แล้ว');
@@ -162,6 +183,8 @@ export default function App() {
     onClearIncome: clearIncome,
     onSaveDebt: saveDebt,
     onDeleteDebt: deleteDebt,
+    onSaveFixedExpense: saveFixedExpense,
+    onDeleteFixedExpense: deleteFixedExpense,
   };
 
   return (

@@ -47,4 +47,22 @@ describe('createApiClient', () => {
 
     await expect(client.loadAll()).rejects.toThrow('bad action');
   });
+
+  it('posts fixed expense updates to the GAS API', async () => {
+    const calls = [];
+    const client = createApiClient({
+      endpoint: 'https://script.google.com/macros/s/demo/exec',
+      fetchImpl: async (url, init) => {
+        calls.push({ url, init });
+        return Response.json({ ok: true, data: [{ fixedKey: 'room' }] });
+      },
+    });
+
+    await client.saveFixedExpense({ fixedKey: 'room', label: 'ค่าห้อง/น้ำ/ไฟ', amount: 1600, notes: 'ประมาณการ' });
+
+    expect(JSON.parse(calls[0].init.body)).toEqual({
+      action: 'saveFixedExpense',
+      payload: { fixedKey: 'room', label: 'ค่าห้อง/น้ำ/ไฟ', amount: 1600, notes: 'ประมาณการ' },
+    });
+  });
 });

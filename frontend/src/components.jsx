@@ -8,6 +8,7 @@ import {
   Landmark,
   Plus,
   ReceiptText,
+  Repeat,
   Save,
   Settings,
   Tag,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import {
   CATEGORY_OPTIONS,
-  buildCategoryBreakdown,
+  buildMonthlyBreakdown,
   calculateMonthSummary,
   expensesForMonth,
   formatBaht,
@@ -46,8 +47,6 @@ export function DashboardView({
   onDeleteExpense,
   onGoAdd,
 }) {
-  const monthExpenses = expensesForMonth(dashboard.expenses, selectedMonth);
-
   return (
     <div className="screen-stack">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
@@ -67,8 +66,7 @@ export function DashboardView({
         onGoAdd={onGoAdd}
       />
       <CategoryBreakdown
-        expenses={monthExpenses}
-        categories={dashboard.categories}
+        dashboard={dashboard}
         monthKey={selectedMonth}
         monthLabel={selectedMonthLabel}
       />
@@ -109,9 +107,10 @@ export function MonthView({
   onClearIncome,
   onSaveDebt,
   onDeleteDebt,
+  onSaveFixedExpense,
+  onDeleteFixedExpense,
 }) {
   const summary = selectedMonth ? calculateMonthSummary(dashboard, selectedMonth) : null;
-  const monthExpenses = expensesForMonth(dashboard.expenses, selectedMonth);
 
   return (
     <div className="screen-stack">
@@ -137,9 +136,14 @@ export function MonthView({
         onSave={onSaveDebt}
         onDelete={onDeleteDebt}
       />
+      <FixedExpenseEditor
+        items={dashboard.fixedExpenses}
+        saving={saving}
+        onSave={onSaveFixedExpense}
+        onDelete={onDeleteFixedExpense}
+      />
       <CategoryBreakdown
-        expenses={monthExpenses}
-        categories={dashboard.categories}
+        dashboard={dashboard}
         monthKey={selectedMonth}
         monthLabel={selectedMonthLabel}
       />
@@ -405,8 +409,8 @@ function ExpenseRow({ item, categories = CATEGORY_OPTIONS, onDelete }) {
   );
 }
 
-function CategoryBreakdown({ expenses, categories = CATEGORY_OPTIONS, monthKey, monthLabel }) {
-  const breakdown = buildCategoryBreakdown(expenses, monthKey, categories);
+function CategoryBreakdown({ dashboard, monthKey, monthLabel }) {
+  const breakdown = buildMonthlyBreakdown(dashboard, monthKey);
   const total = breakdown.reduce((sum, item) => sum + item.amount, 0);
   const donut = useMemo(() => buildDonutGradient(breakdown, total), [breakdown, total]);
 
@@ -530,6 +534,117 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
       <div className="debt-list">
         {DEBT_OPTIONS.map((option) => (
           <DebtGroup key={option.key} option={option} items={debts[option.key] || []} onDelete={onDelete} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FixedExpenseEditor({ items = [], saving, onSave, onDelete }) {
+  const [selectedKey, setSelectedKey] = useState(items[0]?.fixedKey || '__new');
+  const selected = items.find((item) => item.fixedKey === selectedKey);
+  const isNew = selectedKey === '__new';
+  const [label, setLabel] = useState(selected?.label || '');
+  const [amount, setAmount] = useState(selected?.amount || '');
+  const [notes, setNotes] = useState(selected?.notes || '');
+
+  useEffect(() => {
+    if (!items.length) {
+      setSelectedKey('__new');
+      return;
+    }
+    if (selectedKey !== '__new' && !items.some((item) => item.fixedKey === selectedKey)) {
+      setSelectedKey(items[0].fixedKey);
+    }
+  }, [items, selectedKey]);
+
+  useEffect(() => {
+    if (isNew) {
+      setLabel('');
+      setAmount('');
+      setNotes('');
+      return;
+    }
+    setLabel(selected?.label || '');
+    setAmount(selected?.amount || '');
+    setNotes(selected?.notes || '');
+  }, [isNew, selected]);
+
+  function submit(event) {
+    event.preventDefault();
+    const parsedAmount = Number(amount);
+    if (!label.trim() || parsedAmount < 0 || Number.isNaN(parsedAmount)) return;
+    onSave({
+      fixedKey: isNew ? '' : selectedKey,
+      label: label.trim(),
+      amount: parsedAmount,
+      active: true,
+      notes: notes.trim(),
+    });
+  }
+
+  const activeItems = items.filter((item) => item.active !== false);
+  const total = activeItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  return (
+    <section className="panel">
+      <div className="section-title">
+        <Repeat size={20} />
+        <div>
+          <h2>รายจ่ายคงที่</h2>
+          <p>เลือกหัวข้อเดิมเพื่ออัปเดตยอด หรือเพิ่มหัวข้อใหม่</p>
+        </div>
+      </div>
+
+      <form className="expense-form" onSubmit={submit}>
+        <label className="field">
+          <span>หัวข้อรายจ่าย</span>
+          <select value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)}>
+            {items.map((item) => (
+              <option key={item.fixedKey} value={item.fixedKey}>
+                {item.label}
+              </option>
+            ))}
+            <option value="__new">เพิ่มหัวข้อใหม่</option>
+          </select>
+        </label>
+        <div className="form-grid">
+          <label className="field">
+            <span>ชื่อหัวข้อ</span>
+            <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="เช่น ค่าห้อง/น้ำ/ไฟ" maxLength={60} />
+          </label>
+          <label className="field amount-field">
+            <span>ยอดต่อเดือน</span>
+            <input type="number" inputMode="decimal" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
+          </label>
+        </div>
+        <label className="field">
+          <span>หมายเหตุ</span>
+          <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="เช่น ประมาณการ / คงที่" maxLength={80} />
+        </label>
+        <div className="settings-actions">
+          <button className="primary-button" type="submit" disabled={saving || !label.trim()}>
+            บันทึกรายจ่ายคงที่
+          </button>
+          <button className="ghost-button" type="button" disabled={saving || isNew} onClick={() => onDelete(selectedKey)}>
+            ลบ
+          </button>
+        </div>
+      </form>
+
+      <div className="fixed-list">
+        <div className="fixed-total">
+          <span>รวมรายจ่ายคงที่</span>
+          <strong>{formatBaht(total)} บาท</strong>
+        </div>
+        {items.map((item) => (
+          <button className="fixed-row" type="button" key={item.fixedKey} onClick={() => setSelectedKey(item.fixedKey)}>
+            <span>
+              <strong>{item.label}</strong>
+              {item.notes ? <small>{item.notes}</small> : null}
+            </span>
+            <b>{formatBaht(item.amount)} บาท</b>
+          </button>
         ))}
       </div>
     </section>

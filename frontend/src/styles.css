@@ -515,6 +515,64 @@ button {
   gap: 10px;
 }
 
+.fixed-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.fixed-total,
+.fixed-row {
+  border: 1px solid rgba(174, 183, 200, 0.12);
+  border-radius: var(--radius);
+  background: rgba(16, 25, 35, 0.35);
+}
+
+.fixed-total {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.fixed-total span,
+.fixed-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.fixed-total strong,
+.fixed-row b {
+  color: var(--orange);
+  white-space: nowrap;
+}
+
+.fixed-row {
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.fixed-row span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.fixed-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .debt-group {
   border: 1px solid rgba(174, 183, 200, 0.12);
   border-radius: var(--radius);

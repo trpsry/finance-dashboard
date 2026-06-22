@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCategoryBreakdown,
+  buildMonthlyBreakdown,
   buildMonthLookup,
   calculateMonthSummary,
   normalizeDashboard,
@@ -69,10 +70,10 @@ describe('calculateMonthSummary', () => {
     expect(summary.income).toBe(25000);
     expect(summary.debtTotal).toBe(4700);
     expect(summary.expenseTotal).toBe(462);
-    expect(summary.fixedTotal).toBe(3170);
-    expect(summary.totalExpenses).toBe(8332);
-    expect(summary.remaining).toBe(16668);
-    expect(summary.weeklyAllowance).toBe(4167);
+    expect(summary.fixedTotal).toBe(2850);
+    expect(summary.totalExpenses).toBe(8012);
+    expect(summary.remaining).toBe(16988);
+    expect(summary.weeklyAllowance).toBe(4247);
   });
 
   it('uses fixed expenses and estimated income from the spreadsheet payload when present', () => {
@@ -108,6 +109,23 @@ describe('buildCategoryBreakdown', () => {
       expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', amount: 120 }),
       expect.objectContaining({ key: 'shopeeEasy', label: 'ShopeeEasy', amount: 42 }),
       expect.objectContaining({ key: 'other', label: 'อื่นๆ', amount: 300 }),
+    ]);
+  });
+});
+
+describe('buildMonthlyBreakdown', () => {
+  it('includes expense categories, monthly debts, and fixed expenses', () => {
+    const dashboard = normalizeDashboard(rawDashboard);
+    const breakdown = buildMonthlyBreakdown(dashboard, 'may');
+
+    expect(breakdown).toEqual([
+      expect.objectContaining({ key: 'shopeePay', amount: 120 }),
+      expect.objectContaining({ key: 'shopeeEasy', amount: 42 }),
+      expect.objectContaining({ key: 'other', amount: 300 }),
+      expect.objectContaining({ key: 'debt-shopeePay', amount: 1500 }),
+      expect.objectContaining({ key: 'debt-shopeeEasy', amount: 700 }),
+      expect.objectContaining({ key: 'debt-kasikorn', amount: 2500 }),
+      expect.objectContaining({ key: 'fixed', amount: 2850 }),
     ]);
   });
 });

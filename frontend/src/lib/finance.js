@@ -3,7 +3,6 @@ export const EST_INCOME = 16275;
 export const FIXED_EXPENSES = {
   room: 1600,
   net: 250,
-  cig: 320,
   oil: 1000,
 };
 
@@ -105,6 +104,37 @@ export function calculateMonthSummary(dashboard, monthKey) {
   };
 }
 
+export function buildMonthlyBreakdown(dashboard, monthKey) {
+  const categoryRows = buildCategoryBreakdown(dashboard.expenses, monthKey, dashboard.categories);
+  const fixedTotal = calculateFixedTotal(dashboard.fixedExpenses);
+  const debtRows = [
+    {
+      key: 'debt-shopeePay',
+      label: 'ShopeePay',
+      color: '#8fa2ff',
+      amount: sumDebtByMonth(dashboard.debtShopeePay, monthKey),
+    },
+    {
+      key: 'debt-shopeeEasy',
+      label: 'ShopeeEasy',
+      color: '#4d96ff',
+      amount: sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey),
+    },
+    {
+      key: 'debt-kasikorn',
+      label: 'กสิกร',
+      color: '#00a950',
+      amount: sumDebtByMonth(dashboard.debtKasikorn, monthKey),
+    },
+  ].filter((item) => item.amount > 0);
+
+  const fixedRow = fixedTotal > 0
+    ? [{ key: 'fixed', label: 'รายจ่ายคงที่', color: '#ff9f1c', amount: fixedTotal }]
+    : [];
+
+  return [...categoryRows, ...debtRows, ...fixedRow];
+}
+
 function normalizeFixedExpenses(items) {
   if (!Array.isArray(items) || items.length === 0) {
     return Object.entries(FIXED_EXPENSES).map(([fixedKey, amount], index) => ({
@@ -116,13 +146,16 @@ function normalizeFixedExpenses(items) {
     }));
   }
 
-  return items.map((item) => ({
-    fixedKey: String(item.fixedKey || ''),
-    label: String(item.label || item.fixedKey || ''),
-    amount: Number(item.amount) || 0,
-    active: item.active !== false,
-    sortOrder: Number(item.sortOrder) || 0,
-  }));
+  return items
+    .map((item) => ({
+      fixedKey: String(item.fixedKey || ''),
+      label: String(item.label || item.fixedKey || ''),
+      amount: Number(item.amount) || 0,
+      active: item.active !== false,
+      sortOrder: Number(item.sortOrder) || 0,
+      notes: String(item.notes || ''),
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 function calculateFixedTotal(items = []) {

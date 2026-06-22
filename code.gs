@@ -32,9 +32,8 @@ const DEFAULT_CATEGORIES = [
 
 const DEFAULT_FIXED_EXPENSES = [
   ['room','ค่าห้อง/น้ำ/ไฟ',1600,true,10,'ประมาณการ'],
-  ['net','เน็ต',250,true,20,''],
-  ['cig','บุหรี่',320,true,30,''],
-  ['oil','น้ำมัน',1000,true,40,'']
+  ['net','เน็ต',250,true,20,'คงที่'],
+  ['oil','น้ำมัน',1000,true,30,'คงที่']
 ];
 
 const DEFAULT_SETTINGS = [
@@ -136,6 +135,12 @@ function handleApiAction(action, payload) {
         break;
       case 'deleteDebt':
         data = deleteDebtByKind(payload.kind, payload.monthKey);
+        break;
+      case 'saveFixedExpense':
+        data = saveFixedExpense(payload.fixedKey, payload.label, payload.amount, payload.active, payload.notes);
+        break;
+      case 'deleteFixedExpense':
+        data = deleteFixedExpense(payload.fixedKey);
         break;
       default:
         throw new Error('Unknown action: ' + action);
@@ -436,7 +441,59 @@ function getFixedExpenses() {
     active: r[3] === true || String(r[3]).toUpperCase() === 'TRUE',
     sortOrder: parseFloat(r[4]) || 0,
     notes: String(r[5] || '')
-  })).filter(r => r.fixedKey);
+  })).filter(r => r.fixedKey).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function saveFixedExpense(fixedKey, label, amount, active, notes) {
+  const sheet = getSheet(SHEET_FIXED_EXPENSES, FIXED_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  const cleanLabel = String(label || '').trim();
+  if (!cleanLabel) throw new Error('Missing fixed expense label');
+  const key = normalizeFixedKey(fixedKey || cleanLabel);
+  const value = parseFloat(amount);
+  const isActive = active === false || String(active).toUpperCase() === 'FALSE' ? false : true;
+  let found = false;
+  let maxSort = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    maxSort = Math.max(maxSort, parseFloat(data[i][4]) || 0);
+    if (String(data[i][0]) === key) {
+      sheet.getRange(i + 1, 2).setValue(cleanLabel);
+      sheet.getRange(i + 1, 3).setValue(isNaN(value) ? 0 : value);
+      sheet.getRange(i + 1, 4).setValue(isActive);
+      sheet.getRange(i + 1, 6).setValue(String(notes || '').trim());
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    sheet.appendRow([
+      key,
+      cleanLabel,
+      isNaN(value) ? 0 : value,
+      isActive,
+      maxSort + 10,
+      String(notes || '').trim()
+    ]);
+    formatRow(sheet, sheet.getLastRow(), FIXED_HEADERS.length);
+  }
+
+  return getFixedExpenses();
+}
+
+function deleteFixedExpense(fixedKey) {
+  const sheet = getSheet(SHEET_FIXED_EXPENSES, FIXED_HEADERS);
+  const key = String(fixedKey || '').trim();
+  if (!key) return getFixedExpenses();
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === key) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+  return getFixedExpenses();
 }
 
 function getSettings() {
@@ -467,6 +524,15 @@ function normalizeDebtKind(kind) {
   if (key === 'shopeeCrash' || key === 'shopeecrAsh') return SHEET_SHOPEECRASH;
   if (key === 'kasikorn') return SHEET_KASIKORN;
   throw new Error('Unknown debt kind: ' + kind);
+}
+
+function normalizeFixedKey(value) {
+  const key = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return key || ('fixed_' + new Date().getTime());
 }
 
 function getDebtLabel(kind) {

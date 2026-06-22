@@ -33,6 +33,8 @@ export function createApiClient({ endpoint, fetchImpl = fetch }) {
     clearIncome: (payload) => request('clearIncome', payload),
     saveDebt: (payload) => request('saveDebt', payload),
     deleteDebt: (payload) => request('deleteDebt', payload),
+    saveFixedExpense: (payload) => request('saveFixedExpense', payload),
+    deleteFixedExpense: (payload) => request('deleteFixedExpense', payload),
   };
 }
 
@@ -65,6 +67,11 @@ function createDemoClient() {
     debtShopeePay: [{ monthKey: 'may', monthLabel: 'พฤษภาคม 2567', amount: 1200, updatedAt: '15/05/2567' }],
     debtShopeecrAsh: [{ monthKey: 'may', monthLabel: 'พฤษภาคม 2567', amount: 900, updatedAt: '15/05/2567' }],
     debtKasikorn: [{ monthKey: 'may', monthLabel: 'พฤษภาคม 2567', amount: 2500, updatedAt: '15/05/2567' }],
+    fixedExpenses: [
+      { fixedKey: 'room', label: 'ค่าห้อง/น้ำ/ไฟ', amount: 1600, active: true, sortOrder: 10, notes: 'ประมาณการ' },
+      { fixedKey: 'net', label: 'เน็ต', amount: 250, active: true, sortOrder: 20, notes: 'คงที่' },
+      { fixedKey: 'oil', label: 'น้ำมัน', amount: 1000, active: true, sortOrder: 30, notes: 'คงที่' },
+    ],
   };
 
   return {
@@ -91,5 +98,24 @@ function createDemoClient() {
     },
     saveDebt: async () => [],
     deleteDebt: async () => [],
+    saveFixedExpense: async (payload) => {
+      const key = payload.fixedKey || `fixed-${Date.now()}`;
+      const existingIndex = demo.fixedExpenses.findIndex((item) => item.fixedKey === key);
+      const row = {
+        fixedKey: key,
+        label: payload.label,
+        amount: Number(payload.amount) || 0,
+        active: payload.active !== false,
+        sortOrder: existingIndex >= 0 ? demo.fixedExpenses[existingIndex].sortOrder : demo.fixedExpenses.length * 10 + 10,
+        notes: payload.notes || '',
+      };
+      if (existingIndex >= 0) demo.fixedExpenses[existingIndex] = row;
+      else demo.fixedExpenses.push(row);
+      return structuredClone(demo.fixedExpenses);
+    },
+    deleteFixedExpense: async ({ fixedKey }) => {
+      demo.fixedExpenses = demo.fixedExpenses.filter((item) => String(item.fixedKey) !== String(fixedKey));
+      return structuredClone(demo.fixedExpenses);
+    },
   };
 }
