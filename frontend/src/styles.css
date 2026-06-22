@@ -744,10 +744,10 @@ button {
 .dashboard-screen .month-select.light,
 .dashboard-panel,
 .summary-grid.light .summary-card {
-  background: #f8fbfd;
-  border-color: rgba(16, 25, 35, 0.12);
-  color: #111820;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  background: var(--panel);
+  border-color: rgba(174, 183, 200, 0.16);
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
 }
 
 .dashboard-screen .month-select.light select,
@@ -756,17 +756,31 @@ button {
 .dashboard-panel .breakdown-total-row,
 .dashboard-panel .donut span,
 .dashboard-panel .donut small {
-  color: #111820;
+  color: var(--text);
 }
 
 .dashboard-panel .list-heading p,
 .dashboard-panel .breakdown-total-row span,
 .dashboard-panel .empty-state {
-  color: #52606d;
+  color: var(--muted);
 }
 
 .dashboard-panel .donut::after {
-  background: #f8fbfd;
+  background: var(--panel);
+}
+
+.dashboard-panel .breakdown-trigger {
+  background: color-mix(in srgb, var(--row-color) 16%, var(--panel-strong));
+  color: var(--text);
+}
+
+.dashboard-panel .detail-heading span,
+.dashboard-panel .detail-row small {
+  color: var(--muted);
+}
+
+.dashboard-panel .detail-row b {
+  color: var(--text);
 }
 
 .dashboard-panel .breakdown-layout {
@@ -780,7 +794,7 @@ button {
 }
 
 .dashboard-panel .breakdown-total-row strong {
-  color: #111820;
+  color: var(--text);
 }
 
 .summary-grid.light {
@@ -797,26 +811,35 @@ button {
 }
 
 .summary-grid.light .summary-card.income {
-  background: #edf8ea;
+  background: #1d342c;
 }
 
 .summary-grid.light .summary-card.expense {
-  background: #fff0ed;
+  background: #35252a;
 }
 
 .summary-grid.light .summary-card.balance {
-  background: #edf8ff;
-  border-color: rgba(16, 25, 35, 0.12);
+  background: #1d3140;
+  border-color: rgba(174, 183, 200, 0.16);
 }
 
 .summary-grid.light .summary-card.week {
-  background: #fff7df;
+  background: #352f22;
 }
 
 .summary-grid.light .summary-label,
-.summary-grid.light .summary-card strong,
 .summary-grid.light .summary-card small {
-  color: #111820;
+  color: var(--muted);
+}
+
+.summary-grid.light .summary-card.income strong,
+.summary-grid.light .summary-card.balance strong,
+.summary-grid.light .summary-card.week strong {
+  color: var(--green);
+}
+
+.summary-grid.light .summary-card.expense strong {
+  color: var(--red);
 }
 
 .bottom-nav {
