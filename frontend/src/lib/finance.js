@@ -33,6 +33,11 @@ export function buildMonthLookup(months = []) {
   }, {});
 }
 
+export function chooseActiveMonth(currentMonth, months = []) {
+  if (!months.length) return '';
+  return months.some((month) => month.key === currentMonth) ? currentMonth : months[0].key;
+}
+
 export function normalizeCategories(items) {
   if (!Array.isArray(items) || items.length === 0) return CATEGORY_OPTIONS;
 

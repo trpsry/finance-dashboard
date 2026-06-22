@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { Script, createContext } from 'node:vm';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const codeGs = readFileSync(resolve(here, '../../../code.gs'), 'utf8');
+
+function loadGasContext() {
+  const context = createContext({});
+  new Script(codeGs).runInContext(context);
+  return context;
+}
 
 describe('GAS backend contract', () => {
   it('exposes JSON web app endpoints for the standalone frontend', () => {
@@ -30,5 +37,31 @@ describe('GAS backend contract', () => {
     expect(codeGs).toMatch(/SHEET_CATEGORIES\s*=\s*['"]Categories['"]/);
     expect(codeGs).toMatch(/SHEET_FIXED_EXPENSES\s*=\s*['"]FixedExpenses['"]/);
     expect(codeGs).toMatch(/SHEET_SETTINGS\s*=\s*['"]Settings['"]/);
+  });
+
+  it('builds a rolling five-month window from the current month', () => {
+    const gas = loadGasContext();
+
+    expect(gas.buildNextMonths(new Date(2026, 5, 22), 5)).toEqual([
+      { key: 'jun', label: 'มิ.ย. 69' },
+      { key: 'jul', label: 'ก.ค. 69' },
+      { key: 'aug', label: 'ส.ค. 69' },
+      { key: 'sep', label: 'ก.ย. 69' },
+      { key: 'oct', label: 'ต.ค. 69' },
+    ]);
+    expect(gas.buildNextMonths(new Date(2026, 6, 1), 5)).toEqual([
+      { key: 'jul', label: 'ก.ค. 69' },
+      { key: 'aug', label: 'ส.ค. 69' },
+      { key: 'sep', label: 'ก.ย. 69' },
+      { key: 'oct', label: 'ต.ค. 69' },
+      { key: 'nov', label: 'พ.ย. 69' },
+    ]);
+    expect(gas.buildNextMonths(new Date(2026, 11, 1), 5)).toEqual([
+      { key: 'dec', label: 'ธ.ค. 69' },
+      { key: 'jan', label: 'ม.ค. 70' },
+      { key: 'feb', label: 'ก.พ. 70' },
+      { key: 'mar', label: 'มี.ค. 70' },
+      { key: 'apr', label: 'เม.ย. 70' },
+    ]);
   });
 });

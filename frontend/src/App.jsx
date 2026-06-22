@@ -9,7 +9,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { createApiClient } from './lib/api.js';
-import { calculateMonthSummary, normalizeDashboard } from './lib/finance.js';
+import { calculateMonthSummary, chooseActiveMonth, normalizeDashboard } from './lib/finance.js';
 import {
   AddExpenseView,
   BottomNav,
@@ -20,11 +20,12 @@ import {
 
 const STORAGE_KEY = 'financeDashboard.gasEndpoint';
 const FALLBACK_GAS_ENDPOINT =
-  'https://script.google.com/macros/s/AKfycbyj-npPe8PsmTXJfi-8dnZhW7I4aE0nKtLhHnAJ8t8D3in9-4Ec-DYZNNvKV39vpPXy/exec';
+  'https://script.google.com/macros/s/AKfycbypMCHcAcLM7vU_kr6t9fF5EQFHUcFT6sW-IpPm9K010epaw67t5OndoNPAOpcnFKUH/exec';
 const DEFAULT_ENDPOINT = import.meta.env.VITE_GAS_ENDPOINT || FALLBACK_GAS_ENDPOINT;
 const STALE_GAS_ENDPOINTS = new Set([
   'https://script.google.com/macros/s/AKfycbxrmUfdb-eYY-m6vHJqvgKPGKETbhEPnntrzOXbAlWpIpJ_3LQhrbxEfBdOQAWYyLsM/exec',
   'https://script.google.com/macros/s/AKfycbwpRBYTptn3K8Yle7ayVlmhBfsiiaeMiuNEKB5Xxc8DoqOYZh5-ypgrZsFy1GxNKB0c/exec',
+  'https://script.google.com/macros/s/AKfycbyj-npPe8PsmTXJfi-8dnZhW7I4aE0nKtLhHnAJ8t8D3in9-4Ec-DYZNNvKV39vpPXy/exec',
 ]);
 
 const NAV_ITEMS = [
@@ -50,7 +51,7 @@ export default function App() {
   const client = useMemo(() => createApiClient({ endpoint }), [endpoint]);
   const dashboard = useMemo(() => normalizeDashboard(rawData || {}), [rawData]);
   const months = dashboard.months;
-  const selectedMonth = activeMonth || months[0]?.key || '';
+  const selectedMonth = chooseActiveMonth(activeMonth, months);
   const selectedMonthLabel = dashboard.monthLookup[selectedMonth] || 'กำลังโหลด';
   const currentSummary = selectedMonth ? calculateMonthSummary(dashboard, selectedMonth) : null;
 
@@ -60,7 +61,7 @@ export default function App() {
     try {
       const data = await client.loadAll();
       setRawData(data);
-      setActiveMonth((current) => current || data.next5Months?.[0]?.key || '');
+      setActiveMonth((current) => chooseActiveMonth(current, data.next5Months || []));
     } catch (err) {
       setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
     } finally {

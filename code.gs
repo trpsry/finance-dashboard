@@ -191,19 +191,24 @@ function formatRow(sheet, row, numCols) {
     .setVerticalAlignment('middle');
 }
 
-function getNext5Months() {
-  const now = new Date();
-  const curIdx = now.getMonth();
-  const shortYear = (now.getFullYear() + 543) % 100;
+function buildNextMonths(baseDate, count) {
+  const date = baseDate || new Date();
+  const total = count || 5;
+  const curIdx = date.getMonth();
+  const baseYear = date.getFullYear();
   const result = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < total; i++) {
     const idx = (curIdx + i) % 12;
     const yearOffset = Math.floor((curIdx + i) / 12);
-    const yr = shortYear + yearOffset;
+    const yr = (baseYear + yearOffset + 543) % 100;
     const key = MONTH_ORDER[idx];
     result.push({ key, label: MONTH_LABEL_TH[key] + ' ' + yr });
   }
   return result;
+}
+
+function getNext5Months() {
+  return buildNextMonths(new Date(), 5);
 }
 
 function loadAll() {

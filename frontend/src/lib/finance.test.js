@@ -4,6 +4,7 @@ import {
   buildMonthlyBreakdown,
   buildMonthLookup,
   calculateMonthSummary,
+  chooseActiveMonth,
   normalizeDashboard,
 } from './finance.js';
 
@@ -143,5 +144,21 @@ describe('buildMonthLookup', () => {
       may: 'พ.ค. 67',
       jun: 'มิ.ย. 67',
     });
+  });
+});
+
+describe('chooseActiveMonth', () => {
+  it('keeps the current month when it is still inside the rolling window', () => {
+    expect(chooseActiveMonth('jul', [
+      { key: 'jun', label: 'มิ.ย. 69' },
+      { key: 'jul', label: 'ก.ค. 69' },
+    ])).toBe('jul');
+  });
+
+  it('falls back to the first rolling month when the current month has passed', () => {
+    expect(chooseActiveMonth('jun', [
+      { key: 'jul', label: 'ก.ค. 69' },
+      { key: 'aug', label: 'ส.ค. 69' },
+    ])).toBe('jul');
   });
 });
