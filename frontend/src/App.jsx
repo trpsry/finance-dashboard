@@ -29,7 +29,7 @@ const STALE_GAS_ENDPOINTS = new Set([
 ]);
 
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'แดชบอร์ด', icon: Home },
+  { key: 'dashboard', label: 'Dashboard', icon: Home },
   { key: 'add', label: 'บันทึก', icon: Plus },
   { key: 'months', label: 'เดือนต่างๆ', icon: CalendarDays },
   { key: 'settings', label: 'ตั้งค่า', icon: Settings },
@@ -78,92 +78,132 @@ export default function App() {
     else localStorage.removeItem(STORAGE_KEY);
   }, [endpoint]);
 
-  async function withSave(action, successMessage) {
+  async function withOptimisticSave({ optimisticUpdate, request, reconcile, successMessage }) {
+    if (saving) return;
+    const snapshot = rawData;
     setSaving(true);
     setError('');
     setNotice('');
+    setRawData((current) => optimisticUpdate(current || {}));
     try {
-      await action();
+      await waitForUiPaint();
+      const result = await request();
+      setRawData((current) => reconcile(current || {}, result));
       setNotice(successMessage);
     } catch (err) {
+      setRawData(snapshot);
       setError(err.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setSaving(false);
     }
   }
 
-  function patchRawData(patch) {
-    setRawData((current) => ({ ...(current || {}), ...patch }));
-  }
-
   async function addExpense(payload) {
-    await withSave(async () => {
-      const extras = await client.addExpense(payload);
-      patchRawData({ extras });
-      setView('dashboard');
-    }, 'บันทึกรายจ่ายแล้ว');
+    const optimisticExpense = {
+      id: `temp-expense-${Date.now()}`,
+      date: formatToday(),
+      ...payload,
+    };
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        extras: [optimisticExpense, ...(current.extras || [])],
+      }),
+      request: () => client.addExpense(payload),
+      reconcile: (current, extras) => ({ ...current, extras }),
+      successMessage: 'บันทึกรายจ่ายแล้ว',
+    });
   }
 
   async function deleteExpense(id) {
     if (!window.confirm('ลบรายการนี้?')) return;
-    await withSave(async () => {
-      const extras = await client.deleteExpense({ id });
-      patchRawData({ extras });
-    }, 'ลบรายการแล้ว');
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        extras: (current.extras || []).filter((item) => String(item.id) !== String(id)),
+      }),
+      request: () => client.deleteExpense({ id }),
+      reconcile: (current, extras) => ({ ...current, extras }),
+      successMessage: 'ลบรายการแล้ว',
+    });
   }
 
   async function saveIncome(monthKey, amount) {
-    await withSave(async () => {
-      const incomes = await client.saveIncome({ monthKey, amount });
-      patchRawData({ incomes });
-    }, 'บันทึกรายรับแล้ว');
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        incomes: { ...(current.incomes || {}), [monthKey]: amount },
+      }),
+      request: () => client.saveIncome({ monthKey, amount }),
+      reconcile: (current, incomes) => ({ ...current, incomes }),
+      successMessage: 'บันทึกรายรับแล้ว',
+    });
   }
 
   async function clearIncome(monthKey) {
     if (!window.confirm('รีเซ็ตรายรับเดือนนี้?')) return;
-    await withSave(async () => {
-      const incomes = await client.clearIncome({ monthKey });
-      patchRawData({ incomes });
-    }, 'รีเซ็ตรายรับแล้ว');
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        incomes: { ...(current.incomes || {}), [monthKey]: null },
+      }),
+      request: () => client.clearIncome({ monthKey }),
+      reconcile: (current, incomes) => ({ ...current, incomes }),
+      successMessage: 'รีเซ็ตรายรับแล้ว',
+    });
   }
 
   async function saveDebt(payload) {
-    await withSave(async () => {
-      const result = await client.saveDebt(payload);
-      patchDebt(payload.kind, result);
-    }, 'บันทึกยอดหนี้แล้ว');
+    const dataKey = debtDataKey(payload.kind);
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        [dataKey]: upsertDebt(current[dataKey], payload),
+      }),
+      request: () => client.saveDebt(payload),
+      reconcile: (current, result) => ({ ...current, [dataKey]: result }),
+      successMessage: 'บันทึกยอดหนี้แล้ว',
+    });
   }
 
   async function deleteDebt(kind, monthKey) {
     if (!window.confirm('ลบยอดหนี้เดือนนี้?')) return;
-    await withSave(async () => {
-      const result = await client.deleteDebt({ kind, monthKey });
-      patchDebt(kind, result);
-    }, 'ลบยอดหนี้แล้ว');
-  }
-
-  function patchDebt(kind, value) {
-    const map = {
-      shopeePay: 'debtShopeePay',
-      shopeeCrash: 'debtShopeecrAsh',
-      kasikorn: 'debtKasikorn',
-    };
-    patchRawData({ [map[kind]]: value });
+    const dataKey = debtDataKey(kind);
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        [dataKey]: (current[dataKey] || []).filter((item) => item.monthKey !== monthKey),
+      }),
+      request: () => client.deleteDebt({ kind, monthKey }),
+      reconcile: (current, result) => ({ ...current, [dataKey]: result }),
+      successMessage: 'ลบยอดหนี้แล้ว',
+    });
   }
 
   async function saveFixedExpense(payload) {
-    await withSave(async () => {
-      const fixedExpenses = await client.saveFixedExpense(payload);
-      patchRawData({ fixedExpenses });
-    }, 'บันทึกรายจ่ายคงที่แล้ว');
+    const optimisticKey = payload.fixedKey || `temp-fixed-${Date.now()}`;
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        fixedExpenses: upsertFixedExpense(current.fixedExpenses, { ...payload, fixedKey: optimisticKey }),
+      }),
+      request: () => client.saveFixedExpense(payload),
+      reconcile: (current, fixedExpenses) => ({ ...current, fixedExpenses }),
+      successMessage: 'บันทึกรายจ่ายคงที่แล้ว',
+    });
   }
 
   async function deleteFixedExpense(fixedKey) {
     if (!window.confirm('ลบรายจ่ายคงที่นี้?')) return;
-    await withSave(async () => {
-      const fixedExpenses = await client.deleteFixedExpense({ fixedKey });
-      patchRawData({ fixedExpenses });
-    }, 'ลบรายจ่ายคงที่แล้ว');
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        fixedExpenses: (current.fixedExpenses || []).filter((item) => item.fixedKey !== fixedKey),
+      }),
+      request: () => client.deleteFixedExpense({ fixedKey }),
+      reconcile: (current, fixedExpenses) => ({ ...current, fixedExpenses }),
+      successMessage: 'ลบรายจ่ายคงที่แล้ว',
+    });
   }
 
   function saveEndpoint(nextEndpoint) {
@@ -209,7 +249,7 @@ export default function App() {
       {!endpoint && <div className="notice notice-muted">โหมดตัวอย่าง</div>}
 
       <main>
-        {view === 'dashboard' && <DashboardView {...commonProps} onGoAdd={() => setView('add')} />}
+        {view === 'dashboard' && <DashboardView {...commonProps} />}
         {view === 'add' && <AddExpenseView {...commonProps} />}
         {view === 'months' && <MonthView {...commonProps} />}
         {view === 'settings' && (
@@ -225,4 +265,54 @@ export default function App() {
       <BottomNav items={NAV_ITEMS} active={view} onChange={setView} />
     </div>
   );
+}
+
+export function debtDataKey(kind) {
+  return {
+    shopeePay: 'debtShopeePay',
+    shopeeCrash: 'debtShopeecrAsh',
+    kasikorn: 'debtKasikorn',
+  }[kind];
+}
+
+export function upsertDebt(items = [], payload) {
+  const nextItem = {
+    monthKey: payload.monthKey,
+    monthLabel: payload.monthLabel,
+    amount: Number(payload.amount) || 0,
+    updatedAt: formatToday(),
+  };
+  const existingIndex = items.findIndex((item) => item.monthKey === payload.monthKey);
+  if (existingIndex < 0) return [...items, nextItem];
+  return items.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item));
+}
+
+export function upsertFixedExpense(items = [], payload) {
+  const existingIndex = items.findIndex((item) => item.fixedKey === payload.fixedKey);
+  const nextItem = {
+    ...payload,
+    amount: Number(payload.amount) || 0,
+    active: payload.active !== false,
+    sortOrder: existingIndex >= 0 ? items[existingIndex].sortOrder : items.length * 10 + 10,
+  };
+  if (existingIndex < 0) return [...items, nextItem];
+  return items.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item));
+}
+
+function formatToday(date = new Date()) {
+  return new Intl.DateTimeFormat('th-TH', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function waitForUiPaint() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
 }

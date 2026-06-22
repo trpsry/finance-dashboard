@@ -8,19 +8,27 @@ export const FIXED_EXPENSES = {
 
 export const FIXED_TOTAL = Object.values(FIXED_EXPENSES).reduce((sum, value) => sum + value, 0);
 
-export const CATEGORY_OPTIONS = [
-  { key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c' },
-  { key: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878' },
-  { key: 'other', label: 'อื่นๆ', color: '#c9a8ff' },
-];
-
-export const BREAKDOWN_COLORS = {
+export const FINANCE_COLORS = {
   shopeePay: '#ff9f1c',
   shopeeEasy: '#ffc878',
   other: '#c9a8ff',
   fixed: '#9edcff',
   kasikorn: '#50c878',
 };
+
+export const CATEGORY_OPTIONS = [
+  { key: 'shopeePay', label: 'ShopeePay', color: FINANCE_COLORS.shopeePay },
+  { key: 'shopeeEasy', label: 'ShopeeEasy', color: FINANCE_COLORS.shopeeEasy },
+  { key: 'other', label: 'อื่นๆ', color: FINANCE_COLORS.other },
+];
+
+export const DEBT_OPTIONS = [
+  { key: 'shopeePay', label: 'ShopeePay', color: FINANCE_COLORS.shopeePay },
+  { key: 'shopeeCrash', label: 'ShopeeEasy', color: FINANCE_COLORS.shopeeEasy },
+  { key: 'kasikorn', label: 'กสิกร', color: FINANCE_COLORS.kasikorn },
+];
+
+export const BREAKDOWN_COLORS = FINANCE_COLORS;
 
 export function formatBaht(value) {
   return Math.round(Number(value) || 0).toLocaleString('th-TH');
@@ -211,6 +219,16 @@ function buildCategoryTotals(expenses, monthKey, categories = CATEGORY_OPTIONS) 
 
 export function expensesForMonth(expenses, monthKey) {
   return sortRecentExpenses(expenses.filter((expense) => expense.monthKey === monthKey));
+}
+
+export function otherExpensesForMonth(dashboard, monthKey) {
+  return expensesForMonth(dashboard.expenses || [], monthKey).filter(
+    (expense) => expense.category === 'other',
+  );
+}
+
+export function activeFixedExpenses(dashboard) {
+  return (dashboard.fixedExpenses || []).filter((item) => item.active !== false);
 }
 
 function sumByMonth(items = [], monthKey) {

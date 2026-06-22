@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import {
   CATEGORY_OPTIONS,
+  DEBT_OPTIONS,
+  activeFixedExpenses,
   buildMonthlyBreakdown,
   calculateMonthSummary,
-  expensesForMonth,
   formatBaht,
+  otherExpensesForMonth,
 } from './lib/finance.js';
 
 const CATEGORY_ICONS = {
@@ -29,54 +31,43 @@ const CATEGORY_ICONS = {
   other: CircleEllipsis,
 };
 
-const DEBT_OPTIONS = [
-  { key: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff' },
-  { key: 'shopeeCrash', label: 'ShopeeEasy', color: '#4d96ff' },
-  { key: 'kasikorn', label: 'กสิกร', color: '#00a950' },
-];
-
 export function DashboardView({
   dashboard,
   selectedMonth,
   selectedMonthLabel,
   currentSummary,
   loading,
-  saving,
   onSelectMonth,
-  onAddExpense,
-  onDeleteExpense,
-  onGoAdd,
 }) {
   return (
-    <div className="screen-stack">
-      <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
-      <SummaryGrid summary={currentSummary} loading={loading} />
-      <ExpenseForm
-        months={dashboard.months}
-        categories={dashboard.categories}
-        defaultMonth={selectedMonth}
-        compact
-        saving={saving}
-        onSubmit={onAddExpense}
-      />
-      <RecentExpenses
-        expenses={dashboard.recentExpenses}
-        categories={dashboard.categories}
-        onDelete={onDeleteExpense}
-        onGoAdd={onGoAdd}
-      />
+    <div className="screen-stack dashboard-screen">
+      <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} light />
+      <SummaryGrid summary={currentSummary} loading={loading} light />
       <CategoryBreakdown
         dashboard={dashboard}
         monthKey={selectedMonth}
         monthLabel={selectedMonthLabel}
+        interactive
+        light
       />
     </div>
   );
 }
 
-export function AddExpenseView({ dashboard, selectedMonth, saving, onAddExpense }) {
+export function AddExpenseView({
+  dashboard,
+  selectedMonth,
+  selectedMonthLabel,
+  saving,
+  onSelectMonth,
+  onAddExpense,
+  onDeleteExpense,
+  onSaveIncome,
+  onClearIncome,
+}) {
   return (
     <div className="screen-stack">
+      <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
       <section className="panel">
         <div className="section-title">
           <Plus size={20} />
@@ -93,6 +84,20 @@ export function AddExpenseView({ dashboard, selectedMonth, saving, onAddExpense 
           onSubmit={onAddExpense}
         />
       </section>
+      <IncomeEditor
+        monthKey={selectedMonth}
+        monthLabel={selectedMonthLabel}
+        currentValue={dashboard.incomes[selectedMonth]}
+        saving={saving}
+        onSave={onSaveIncome}
+        onClear={onClearIncome}
+      />
+      <RecentExpenses
+        expenses={dashboard.recentExpenses}
+        categories={dashboard.categories}
+        onDelete={onDeleteExpense}
+        saving={saving}
+      />
     </div>
   );
 }
@@ -103,8 +108,6 @@ export function MonthView({
   selectedMonthLabel,
   saving,
   onSelectMonth,
-  onSaveIncome,
-  onClearIncome,
   onSaveDebt,
   onDeleteDebt,
   onSaveFixedExpense,
@@ -116,14 +119,6 @@ export function MonthView({
     <div className="screen-stack">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
       <SummaryGrid summary={summary} />
-      <IncomeEditor
-        monthKey={selectedMonth}
-        monthLabel={selectedMonthLabel}
-        currentValue={dashboard.incomes[selectedMonth]}
-        saving={saving}
-        onSave={onSaveIncome}
-        onClear={onClearIncome}
-      />
       <DebtEditor
         months={dashboard.months}
         defaultMonth={selectedMonth}
@@ -210,9 +205,9 @@ export function BottomNav({ items, active, onChange }) {
   );
 }
 
-function MonthSelector({ months, value, onChange }) {
+function MonthSelector({ months, value, onChange, light = false }) {
   return (
-    <label className="month-select">
+    <label className={light ? 'month-select light' : 'month-select'}>
       <CalendarDays size={20} />
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {months.map((month) => (
@@ -226,7 +221,7 @@ function MonthSelector({ months, value, onChange }) {
   );
 }
 
-function SummaryGrid({ summary, loading }) {
+function SummaryGrid({ summary, loading, light = false }) {
   const cards = [
     { label: 'รายรับ', value: summary?.income, tone: 'income', icon: Banknote, suffix: summary?.incomeConfirmed ? '' : '~' },
     { label: 'รายจ่ายรวม', value: summary?.totalExpenses, tone: 'expense', icon: ReceiptText },
@@ -235,7 +230,7 @@ function SummaryGrid({ summary, loading }) {
   ];
 
   return (
-    <section className="summary-grid" aria-label="สรุปเดือน">
+    <section className={light ? 'summary-grid light' : 'summary-grid'} aria-label="สรุปเดือน">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
@@ -360,7 +355,7 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
   );
 }
 
-function RecentExpenses({ expenses, categories = CATEGORY_OPTIONS, onDelete, onGoAdd }) {
+function RecentExpenses({ expenses, categories = CATEGORY_OPTIONS, onDelete, onGoAdd, saving = false }) {
   return (
     <section className="panel">
       <div className="list-heading">
@@ -368,16 +363,18 @@ function RecentExpenses({ expenses, categories = CATEGORY_OPTIONS, onDelete, onG
           <h2>รายการล่าสุด</h2>
           <p>รายการที่บันทึกล่าสุดจากทุกเดือน</p>
         </div>
-        <button className="link-button" type="button" onClick={onGoAdd}>
-          เพิ่ม
-        </button>
+        {onGoAdd ? (
+          <button className="link-button" type="button" onClick={onGoAdd}>
+            เพิ่ม
+          </button>
+        ) : null}
       </div>
       <div className="expense-list">
         {expenses.length === 0 ? (
           <div className="empty-state">ยังไม่มีรายจ่าย</div>
         ) : (
           expenses.map((item) => (
-            <ExpenseRow key={item.id} item={item} categories={categories} onDelete={onDelete} />
+            <ExpenseRow key={item.id} item={item} categories={categories} onDelete={onDelete} saving={saving} />
           ))
         )}
       </div>
@@ -385,7 +382,7 @@ function RecentExpenses({ expenses, categories = CATEGORY_OPTIONS, onDelete, onG
   );
 }
 
-function ExpenseRow({ item, categories = CATEGORY_OPTIONS, onDelete }) {
+function ExpenseRow({ item, categories = CATEGORY_OPTIONS, onDelete, saving = false }) {
   const category = categories.find((option) => option.key === item.category) || categories.at(-1) || CATEGORY_OPTIONS.at(-1);
   const Icon = CATEGORY_ICONS[category.key] || Tag;
 
@@ -402,20 +399,27 @@ function ExpenseRow({ item, categories = CATEGORY_OPTIONS, onDelete }) {
         <strong>{formatBaht(item.amount)} บาท</strong>
         <span>{item.date}</span>
       </div>
-      <button className="trash-button" type="button" onClick={() => onDelete(item.id)} aria-label="ลบรายการ">
+      <button className="trash-button" type="button" disabled={saving} onClick={() => onDelete(item.id)} aria-label="ลบรายการ">
         <Trash2 size={16} />
       </button>
     </article>
   );
 }
 
-function CategoryBreakdown({ dashboard, monthKey, monthLabel }) {
+function CategoryBreakdown({ dashboard, monthKey, monthLabel, interactive = false, light = false }) {
+  const [expandedKey, setExpandedKey] = useState('');
   const breakdown = buildMonthlyBreakdown(dashboard, monthKey);
   const total = breakdown.reduce((sum, item) => sum + item.amount, 0);
   const donut = useMemo(() => buildDonutGradient(breakdown, total), [breakdown, total]);
+  const otherExpenses = otherExpensesForMonth(dashboard, monthKey);
+  const fixedExpenses = activeFixedExpenses(dashboard);
+
+  useEffect(() => {
+    setExpandedKey('');
+  }, [monthKey]);
 
   return (
-    <section className="panel">
+    <section className={light ? 'panel dashboard-panel' : 'panel'}>
       <div className="list-heading">
         <div>
           <h2>สรุปภาพรวมรายเดือน</h2>
@@ -431,13 +435,37 @@ function CategoryBreakdown({ dashboard, monthKey, monthLabel }) {
           {breakdown.length === 0 ? (
             <div className="empty-state compact">ยังไม่มีรายจ่ายในเดือนนี้</div>
           ) : (
-            breakdown.map((item) => (
-              <div className="breakdown-row" key={item.key}>
-                <span className="legend" style={{ background: item.color }} />
-                <span>{item.label}</span>
-                <strong>{formatBaht(item.amount)}</strong>
-              </div>
-            ))
+            breakdown.map((item) => {
+              const expandable = interactive && (item.key === 'other' || item.key === 'fixed');
+              const rowContent = (
+                <>
+                  <span className="legend" style={{ background: item.color }} />
+                  <span>{item.label}</span>
+                  <strong>{formatBaht(item.amount)}</strong>
+                  {expandable ? (
+                    <ChevronDown className={expandedKey === item.key ? 'detail-chevron open' : 'detail-chevron'} size={17} />
+                  ) : null}
+                </>
+              );
+
+              return expandable ? (
+                <button
+                  className="breakdown-row breakdown-trigger"
+                  style={{ '--row-color': item.color }}
+                  type="button"
+                  key={item.key}
+                  aria-expanded={expandedKey === item.key}
+                  aria-controls="dashboard-category-detail"
+                  onClick={() => setExpandedKey((current) => (current === item.key ? '' : item.key))}
+                >
+                  {rowContent}
+                </button>
+              ) : (
+                <div className="breakdown-row" key={item.key}>
+                  {rowContent}
+                </div>
+              );
+            })
           )}
           <div className="breakdown-total-row">
             <span>ยอดรวมรายจ่าย</span>
@@ -445,6 +473,43 @@ function CategoryBreakdown({ dashboard, monthKey, monthLabel }) {
           </div>
         </div>
       </div>
+      {interactive && expandedKey ? (
+        <div className="breakdown-detail" id="dashboard-category-detail">
+          <div className="detail-heading">
+            <strong>{expandedKey === 'fixed' ? 'รายการรายจ่ายคงที่' : 'รายการรายจ่ายอื่นๆ'}</strong>
+            <span>{monthLabel}</span>
+          </div>
+          <div className="detail-list">
+            {expandedKey === 'fixed' ? (
+              fixedExpenses.length ? (
+                fixedExpenses.map((item) => (
+                  <div className="detail-row" key={item.fixedKey}>
+                    <span>
+                      <strong>{item.label}</strong>
+                      {item.notes ? <small>{item.notes}</small> : null}
+                    </span>
+                    <b>{formatBaht(item.amount)} บาท</b>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state compact">ยังไม่มีรายจ่ายคงที่</div>
+              )
+            ) : otherExpenses.length ? (
+              otherExpenses.map((item) => (
+                <div className="detail-row" key={item.id}>
+                  <span>
+                    <strong>{item.note}</strong>
+                    {item.date ? <small>{item.date}</small> : null}
+                  </span>
+                  <b>{formatBaht(item.amount)} บาท</b>
+                </div>
+              ))
+            ) : (
+              <div className="empty-state compact">ยังไม่มีรายจ่ายอื่นๆ ในเดือนนี้</div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -486,10 +551,19 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
   const [monthKey, setMonthKey] = useState(defaultMonth);
   const [amount, setAmount] = useState('');
   const monthLabel = months.find((month) => month.key === monthKey)?.label || monthKey;
+  const activeOption = DEBT_OPTIONS.find((option) => option.key === kind) || DEBT_OPTIONS[0];
 
   useEffect(() => {
     if (!monthKey && defaultMonth) setMonthKey(defaultMonth);
   }, [defaultMonth, monthKey]);
+
+  function submit(event) {
+    event.preventDefault();
+    const parsedAmount = Number(amount);
+    if (!parsedAmount || !monthKey) return;
+    onSave({ kind, monthKey, monthLabel, amount: parsedAmount });
+    setAmount('');
+  }
 
   return (
     <section className="panel">
@@ -500,17 +574,24 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
           <p>ShopeePay, ShopeeEasy และกสิกร</p>
         </div>
       </div>
-      <div className="form-grid">
-        <label className="field">
-          <span>ประเภทหนี้</span>
-          <select value={kind} onChange={(event) => setKind(event.target.value)}>
-            {DEBT_OPTIONS.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+
+      <div className="debt-tabs" role="tablist" aria-label="เลือกประเภทหนี้">
+        {DEBT_OPTIONS.map((option) => (
+          <button
+            className={option.key === kind ? 'debt-tab active' : 'debt-tab'}
+            style={{ '--debt-color': option.color }}
+            type="button"
+            role="tab"
+            aria-selected={option.key === kind}
+            key={option.key}
+            onClick={() => setKind(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <form className="debt-form" onSubmit={submit}>
         <label className="field">
           <span>เดือน</span>
           <select value={monthKey} onChange={(event) => setMonthKey(event.target.value)}>
@@ -521,24 +602,22 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
             ))}
           </select>
         </label>
-      </div>
-      <label className="field">
-        <span>ยอดชำระ</span>
-        <input type="number" inputMode="decimal" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
-      </label>
-      <button
-        className="primary-button"
-        type="button"
-        disabled={saving || !amount}
-        onClick={() => onSave({ kind, monthKey, monthLabel, amount: Number(amount) })}
-      >
-        บันทึกยอดหนี้
-      </button>
+        <label className="field">
+          <span>ยอดชำระ</span>
+          <input type="number" inputMode="decimal" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
+        </label>
+        <button className="primary-button" type="submit" disabled={saving || !amount}>
+          บันทึกยอดหนี้
+        </button>
+      </form>
 
       <div className="debt-list">
-        {DEBT_OPTIONS.map((option) => (
-          <DebtGroup key={option.key} option={option} items={debts[option.key] || []} onDelete={onDelete} />
-        ))}
+        <DebtGroup
+          option={activeOption}
+          items={debts[activeOption.key] || []}
+          onDelete={onDelete}
+          saving={saving}
+        />
       </div>
     </section>
   );
@@ -655,10 +734,13 @@ function FixedExpenseEditor({ items = [], saving, onSave, onDelete }) {
   );
 }
 
-function DebtGroup({ option, items, onDelete }) {
+function DebtGroup({ option, items, onDelete, saving }) {
   return (
-    <div className="debt-group">
-      <h3 style={{ color: option.color }}>{option.label}</h3>
+    <div className="debt-group" style={{ '--debt-color': option.color }}>
+      <div className="debt-group-heading">
+        <h3>{option.label}</h3>
+        <span>{items.length} เดือน</span>
+      </div>
       {items.length === 0 ? (
         <p>ยังไม่มีข้อมูล</p>
       ) : (
@@ -666,8 +748,13 @@ function DebtGroup({ option, items, onDelete }) {
           <div className="debt-row" key={`${option.key}-${item.monthKey}`}>
             <span>{item.monthLabel}</span>
             <strong>{formatBaht(item.amount)} บาท</strong>
-            <button type="button" onClick={() => onDelete(option.key, item.monthKey)}>
-              ลบ
+            <button
+              type="button"
+              disabled={saving}
+              aria-label={`ลบยอด ${option.label} เดือน ${item.monthLabel}`}
+              onClick={() => onDelete(option.key, item.monthKey)}
+            >
+              <Trash2 size={16} />
             </button>
           </div>
         ))
