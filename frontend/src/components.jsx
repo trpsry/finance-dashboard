@@ -19,7 +19,9 @@ import {
   CATEGORY_OPTIONS,
   DEBT_OPTIONS,
   activeFixedExpenses,
+  buildDebtOverviewRows,
   buildMonthlyBreakdown,
+  calculateBudgetPlan,
   calculateMonthSummary,
   formatBaht,
   otherExpensesForMonth,
@@ -28,6 +30,7 @@ import {
 const CATEGORY_ICONS = {
   shopeePay: CreditCard,
   shopeeEasy: Wallet,
+  kasikorn: Landmark,
   other: CircleEllipsis,
 };
 
@@ -38,11 +41,14 @@ export function DashboardView({
   currentSummary,
   loading,
   onSelectMonth,
+  dailyBudget,
+  onDailyBudgetChange,
 }) {
   return (
     <div className="screen-stack dashboard-screen">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} light />
-      <SummaryGrid summary={currentSummary} loading={loading} light />
+      <SummaryGrid summary={currentSummary} dailyBudget={dailyBudget} loading={loading} light />
+      <DailyBudgetPlanner dailyBudget={dailyBudget} onChange={onDailyBudgetChange} />
       <CategoryBreakdown
         dashboard={dashboard}
         monthKey={selectedMonth}
@@ -64,6 +70,8 @@ export function AddExpenseView({
   onDeleteExpense,
   onSaveIncome,
   onClearIncome,
+  onSaveFixedExpense,
+  onDeleteFixedExpense,
 }) {
   return (
     <div className="screen-stack">
@@ -92,6 +100,12 @@ export function AddExpenseView({
         onSave={onSaveIncome}
         onClear={onClearIncome}
       />
+      <FixedExpenseEditor
+        items={dashboard.fixedExpenses}
+        saving={saving}
+        onSave={onSaveFixedExpense}
+        onDelete={onDeleteFixedExpense}
+      />
       <RecentExpenses
         expenses={dashboard.recentExpenses}
         categories={dashboard.categories}
@@ -106,12 +120,7 @@ export function MonthView({
   dashboard,
   selectedMonth,
   selectedMonthLabel,
-  saving,
   onSelectMonth,
-  onSaveDebt,
-  onDeleteDebt,
-  onSaveFixedExpense,
-  onDeleteFixedExpense,
 }) {
   const summary = selectedMonth ? calculateMonthSummary(dashboard, selectedMonth) : null;
 
@@ -119,24 +128,7 @@ export function MonthView({
     <div className="screen-stack">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
       <SummaryGrid summary={summary} />
-      <DebtEditor
-        months={dashboard.months}
-        defaultMonth={selectedMonth}
-        debts={{
-          shopeePay: dashboard.debtShopeePay,
-          shopeeCrash: dashboard.debtShopeecrAsh,
-          kasikorn: dashboard.debtKasikorn,
-        }}
-        saving={saving}
-        onSave={onSaveDebt}
-        onDelete={onDeleteDebt}
-      />
-      <FixedExpenseEditor
-        items={dashboard.fixedExpenses}
-        saving={saving}
-        onSave={onSaveFixedExpense}
-        onDelete={onDeleteFixedExpense}
-      />
+      <DebtOverview dashboard={dashboard} />
       <CategoryBreakdown
         dashboard={dashboard}
         monthKey={selectedMonth}
@@ -221,12 +213,14 @@ function MonthSelector({ months, value, onChange, light = false }) {
   );
 }
 
-function SummaryGrid({ summary, loading, light = false }) {
+function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
+  const budgetPlan = calculateBudgetPlan(summary, dailyBudget);
   const cards = [
     { label: 'รายรับ', value: summary?.income, tone: 'income', icon: Banknote, suffix: summary?.incomeConfirmed ? '' : '~' },
-    { label: 'รายจ่ายรวม', value: summary?.totalExpenses, tone: 'expense', icon: ReceiptText },
-    { label: 'คงเหลือ', value: summary?.remaining, tone: 'balance', icon: Wallet },
-    { label: 'ใช้ได้/อาทิตย์', value: summary?.weeklyAllowance, tone: 'week', icon: CalendarDays },
+    { label: 'หนี้', value: summary?.debtTotal, tone: 'expense', icon: ReceiptText },
+    { label: 'ใช้ต่อวัน', value: budgetPlan.dailyBudget, tone: 'daily', icon: CalendarDays },
+    { label: 'ใช้ 30 วัน', value: budgetPlan.monthlyDailyBudget, tone: 'month-budget', icon: CalendarDays },
+    { label: 'คงเหลือใช้', value: budgetPlan.spendableRemaining, tone: 'balance', icon: Wallet },
   ];
 
   return (
@@ -244,6 +238,37 @@ function SummaryGrid({ summary, loading, light = false }) {
           </article>
         );
       })}
+    </section>
+  );
+}
+
+function DailyBudgetPlanner({ dailyBudget, onChange }) {
+  const plan = calculateBudgetPlan({ income: 0, debtTotal: 0 }, dailyBudget);
+
+  return (
+    <section className="panel dashboard-panel budget-planner">
+      <div className="section-title">
+        <Wallet size={20} />
+        <div>
+          <h2>เงินใช้ต่อวัน</h2>
+          <p>ใช้คำนวณเงินเหลือเก็บหลังหักหนี้</p>
+        </div>
+      </div>
+      <label className="field">
+        <span>ใช้เงินต่อวัน</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          value={dailyBudget || ''}
+          onChange={(event) => onChange(Number(event.target.value) || 0)}
+          placeholder="เช่น 250"
+        />
+      </label>
+      <div className="budget-result">
+        <span>ใช้ต่อวัน x 30</span>
+        <strong>{formatBaht(plan.monthlyDailyBudget)} บาท</strong>
+      </div>
     </section>
   );
 }
@@ -546,24 +571,10 @@ function IncomeEditor({ monthKey, monthLabel, currentValue, saving, onSave, onCl
   );
 }
 
-function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
+function DebtOverview({ dashboard }) {
   const [kind, setKind] = useState('kasikorn');
-  const [monthKey, setMonthKey] = useState(defaultMonth);
-  const [amount, setAmount] = useState('');
-  const monthLabel = months.find((month) => month.key === monthKey)?.label || monthKey;
   const activeOption = DEBT_OPTIONS.find((option) => option.key === kind) || DEBT_OPTIONS[0];
-
-  useEffect(() => {
-    if (!monthKey && defaultMonth) setMonthKey(defaultMonth);
-  }, [defaultMonth, monthKey]);
-
-  function submit(event) {
-    event.preventDefault();
-    const parsedAmount = Number(amount);
-    if (!parsedAmount || !monthKey) return;
-    onSave({ kind, monthKey, monthLabel, amount: parsedAmount });
-    setAmount('');
-  }
+  const rows = buildDebtOverviewRows(dashboard, activeOption.key);
 
   return (
     <section className="panel">
@@ -571,7 +582,7 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
         <Landmark size={20} />
         <div>
           <h2>ยอดหนี้รายเดือน</h2>
-          <p>ShopeePay, ShopeeEasy และกสิกร</p>
+          <p>ดูยอด ShopeePay, ShopeeEasy และกสิกร</p>
         </div>
       </div>
 
@@ -591,33 +602,8 @@ function DebtEditor({ months, defaultMonth, debts, saving, onSave, onDelete }) {
         ))}
       </div>
 
-      <form className="debt-form" onSubmit={submit}>
-        <label className="field">
-          <span>เดือน</span>
-          <select value={monthKey} onChange={(event) => setMonthKey(event.target.value)}>
-            {months.map((month) => (
-              <option key={month.key} value={month.key}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>ยอดชำระ</span>
-          <input type="number" inputMode="decimal" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" />
-        </label>
-        <button className="primary-button" type="submit" disabled={saving || !amount}>
-          บันทึกยอดหนี้
-        </button>
-      </form>
-
       <div className="debt-list">
-        <DebtGroup
-          option={activeOption}
-          items={debts[activeOption.key] || []}
-          onDelete={onDelete}
-          saving={saving}
-        />
+        <DebtGroup option={activeOption} items={rows} />
       </div>
     </section>
   );
@@ -745,17 +731,19 @@ function DebtGroup({ option, items, onDelete, saving }) {
         <p>ยังไม่มีข้อมูล</p>
       ) : (
         items.map((item) => (
-          <div className="debt-row" key={`${option.key}-${item.monthKey}`}>
+          <div className={onDelete ? 'debt-row' : 'debt-row read-only'} key={`${option.key}-${item.monthKey}`}>
             <span>{item.monthLabel}</span>
             <strong>{formatBaht(item.amount)} บาท</strong>
-            <button
-              type="button"
-              disabled={saving}
-              aria-label={`ลบยอด ${option.label} เดือน ${item.monthLabel}`}
-              onClick={() => onDelete(option.key, item.monthKey)}
-            >
-              <Trash2 size={16} />
-            </button>
+            {onDelete ? (
+              <button
+                type="button"
+                disabled={saving}
+                aria-label={`ลบยอด ${option.label} เดือน ${item.monthLabel}`}
+                onClick={() => onDelete(option.key, item.monthKey)}
+              >
+                <Trash2 size={16} />
+              </button>
+            ) : null}
           </div>
         ))
       )}

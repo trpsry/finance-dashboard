@@ -18,6 +18,7 @@ const dashboard = normalizeDashboard({
   incomes: { jun: 18000 },
   extras: [
     { id: 'other-1', date: '22/06/2569', note: 'ยืมแม่', amount: 500, monthKey: 'jun', category: 'other' },
+    { id: 'kas-1', date: '22/06/2569', note: 'กสิกร', amount: 300, monthKey: 'jun', category: 'kasikorn' },
   ],
   debtShopeePay: [{ monthKey: 'jun', monthLabel: 'มิ.ย. 69', amount: 865 }],
   debtShopeecrAsh: [{ monthKey: 'jun', monthLabel: 'มิ.ย. 69', amount: 2138 }],
@@ -40,10 +41,10 @@ const baseProps = {
   onDeleteExpense: vi.fn(),
   onSaveIncome: vi.fn(),
   onClearIncome: vi.fn(),
-  onSaveDebt: vi.fn(),
-  onDeleteDebt: vi.fn(),
   onSaveFixedExpense: vi.fn(),
   onDeleteFixedExpense: vi.fn(),
+  dailyBudget: 250,
+  onDailyBudgetChange: vi.fn(),
 };
 
 afterEach(cleanup);
@@ -54,6 +55,10 @@ describe('view composition', () => {
 
     expect(screen.queryByRole('heading', { name: 'บันทึกรายจ่าย' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'รายการล่าสุด' })).toBeNull();
+    expect(screen.queryByText('ใช้ได้/อาทิตย์')).toBeNull();
+    expect(screen.getByLabelText('ใช้เงินต่อวัน').value).toBe('250');
+    expect(screen.getByText('7,500')).toBeTruthy();
+    expect(screen.getByText('คงเหลือใช้')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /รายจ่ายคงที่/ }));
     expect(screen.getByText('ค่าห้อง/น้ำ/ไฟ')).toBeTruthy();
@@ -70,12 +75,16 @@ describe('view composition', () => {
     expect(screen.getByRole('heading', { name: 'บันทึกรายจ่าย' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'รายรับจริง' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'รายการล่าสุด' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'กสิกร' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'รายจ่ายคงที่' })).toBeTruthy();
   });
 
-  it('removes income from the month view and shows one debt group at a time', () => {
+  it('removes edit forms from the month view and shows one debt group at a time', () => {
     render(<MonthView {...baseProps} />);
 
     expect(screen.queryByRole('heading', { name: 'รายรับจริง' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'บันทึกยอดหนี้' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'รายจ่ายคงที่' })).toBeNull();
     expect(screen.getByText('1,400 บาท')).toBeTruthy();
     expect(screen.queryByText('865 บาท')).toBeNull();
 

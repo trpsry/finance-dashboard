@@ -19,6 +19,7 @@ import {
 } from './components.jsx';
 
 const STORAGE_KEY = 'financeDashboard.gasEndpoint';
+const DAILY_BUDGET_STORAGE_KEY = 'financeDashboard.dailyBudget';
 const FALLBACK_GAS_ENDPOINT =
   'https://script.google.com/macros/s/AKfycbypMCHcAcLM7vU_kr6t9fF5EQFHUcFT6sW-IpPm9K010epaw67t5OndoNPAOpcnFKUH/exec';
 const DEFAULT_ENDPOINT = import.meta.env.VITE_GAS_ENDPOINT || FALLBACK_GAS_ENDPOINT;
@@ -47,6 +48,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [dailyBudget, setDailyBudget] = useState(() => Number(localStorage.getItem(DAILY_BUDGET_STORAGE_KEY)) || 0);
 
   const client = useMemo(() => createApiClient({ endpoint }), [endpoint]);
   const dashboard = useMemo(() => normalizeDashboard(rawData || {}), [rawData]);
@@ -77,6 +79,10 @@ export default function App() {
     if (endpoint) localStorage.setItem(STORAGE_KEY, endpoint);
     else localStorage.removeItem(STORAGE_KEY);
   }, [endpoint]);
+
+  useEffect(() => {
+    localStorage.setItem(DAILY_BUDGET_STORAGE_KEY, String(Number(dailyBudget) || 0));
+  }, [dailyBudget]);
 
   async function withOptimisticSave({ optimisticUpdate, request, reconcile, successMessage }) {
     if (saving) return;
@@ -153,33 +159,6 @@ export default function App() {
     });
   }
 
-  async function saveDebt(payload) {
-    const dataKey = debtDataKey(payload.kind);
-    await withOptimisticSave({
-      optimisticUpdate: (current) => ({
-        ...current,
-        [dataKey]: upsertDebt(current[dataKey], payload),
-      }),
-      request: () => client.saveDebt(payload),
-      reconcile: (current, result) => ({ ...current, [dataKey]: result }),
-      successMessage: 'บันทึกยอดหนี้แล้ว',
-    });
-  }
-
-  async function deleteDebt(kind, monthKey) {
-    if (!window.confirm('ลบยอดหนี้เดือนนี้?')) return;
-    const dataKey = debtDataKey(kind);
-    await withOptimisticSave({
-      optimisticUpdate: (current) => ({
-        ...current,
-        [dataKey]: (current[dataKey] || []).filter((item) => item.monthKey !== monthKey),
-      }),
-      request: () => client.deleteDebt({ kind, monthKey }),
-      reconcile: (current, result) => ({ ...current, [dataKey]: result }),
-      successMessage: 'ลบยอดหนี้แล้ว',
-    });
-  }
-
   async function saveFixedExpense(payload) {
     const optimisticKey = payload.fixedKey || `temp-fixed-${Date.now()}`;
     await withOptimisticSave({
@@ -223,10 +202,10 @@ export default function App() {
     onDeleteExpense: deleteExpense,
     onSaveIncome: saveIncome,
     onClearIncome: clearIncome,
-    onSaveDebt: saveDebt,
-    onDeleteDebt: deleteDebt,
     onSaveFixedExpense: saveFixedExpense,
     onDeleteFixedExpense: deleteFixedExpense,
+    dailyBudget,
+    onDailyBudgetChange: setDailyBudget,
   };
 
   return (
@@ -265,26 +244,6 @@ export default function App() {
       <BottomNav items={NAV_ITEMS} active={view} onChange={setView} />
     </div>
   );
-}
-
-export function debtDataKey(kind) {
-  return {
-    shopeePay: 'debtShopeePay',
-    shopeeCrash: 'debtShopeecrAsh',
-    kasikorn: 'debtKasikorn',
-  }[kind];
-}
-
-export function upsertDebt(items = [], payload) {
-  const nextItem = {
-    monthKey: payload.monthKey,
-    monthLabel: payload.monthLabel,
-    amount: Number(payload.amount) || 0,
-    updatedAt: formatToday(),
-  };
-  const existingIndex = items.findIndex((item) => item.monthKey === payload.monthKey);
-  if (existingIndex < 0) return [...items, nextItem];
-  return items.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item));
 }
 
 export function upsertFixedExpense(items = [], payload) {

@@ -57,12 +57,14 @@ function createDemoClient() {
     extras: [
       { id: 'demo-1', date: '16/05/2567', note: 'ShopeePay', amount: 120, monthKey: 'may', category: 'shopeePay' },
       { id: 'demo-2', date: '16/05/2567', note: 'ShopeeEasy', amount: 42, monthKey: 'may', category: 'shopeeEasy' },
-      { id: 'demo-3', date: '15/05/2567', note: 'อื่นๆ', amount: 380, monthKey: 'may', category: 'other' },
+      { id: 'demo-3', date: '15/05/2567', note: 'กสิกร', amount: 500, monthKey: 'may', category: 'kasikorn' },
+      { id: 'demo-4', date: '15/05/2567', note: 'อื่นๆ', amount: 380, monthKey: 'may', category: 'other' },
     ],
     categories: [
-      { categoryKey: 'shopeePay', label: 'ShopeePay', color: '#8fa2ff', active: true, sortOrder: 10 },
-      { categoryKey: 'shopeeEasy', label: 'ShopeeEasy', color: '#4d96ff', active: true, sortOrder: 20 },
-      { categoryKey: 'other', label: 'อื่นๆ', color: '#aeb7c8', active: true, sortOrder: 30 },
+      { categoryKey: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c', active: true, sortOrder: 10 },
+      { categoryKey: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878', active: true, sortOrder: 20 },
+      { categoryKey: 'kasikorn', label: 'กสิกร', color: '#50c878', active: true, sortOrder: 30 },
+      { categoryKey: 'other', label: 'อื่นๆ', color: '#c9a8ff', active: true, sortOrder: 40 },
     ],
     debtShopeePay: [{ monthKey: 'may', monthLabel: 'พฤษภาคม 2567', amount: 1200, updatedAt: '15/05/2567' }],
     debtShopeecrAsh: [{ monthKey: 'may', monthLabel: 'พฤษภาคม 2567', amount: 900, updatedAt: '15/05/2567' }],

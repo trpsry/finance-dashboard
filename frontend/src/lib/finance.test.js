@@ -57,6 +57,7 @@ describe('normalizeDashboard', () => {
     expect(dashboard.categories).toEqual([
       expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c' }),
       expect.objectContaining({ key: 'shopeeEasy' }),
+      expect.objectContaining({ key: 'kasikorn' }),
       expect.objectContaining({ key: 'other' }),
     ]);
     expect(dashboard.categories.some((item) => item.key === 'hidden')).toBe(false);
@@ -69,12 +70,33 @@ describe('calculateMonthSummary', () => {
     const summary = calculateMonthSummary(dashboard, 'may');
 
     expect(summary.income).toBe(25000);
-    expect(summary.debtTotal).toBe(4700);
+    expect(summary.debtTotal).toBe(7850);
     expect(summary.expenseTotal).toBe(462);
     expect(summary.fixedTotal).toBe(2850);
-    expect(summary.totalExpenses).toBe(8012);
-    expect(summary.remaining).toBe(16988);
-    expect(summary.weeklyAllowance).toBe(4247);
+    expect(summary.totalExpenses).toBe(7850);
+    expect(summary.remaining).toBe(17150);
+  });
+
+  it('does not double count debt categories when the same amount exists in expenses and debt schedules', () => {
+    const dashboard = normalizeDashboard({
+      next5Months: [{ key: 'jun', label: 'มิ.ย. 69' }],
+      incomes: { jun: 18000 },
+      extras: [
+        { id: 'spay', date: '22/06/2569', note: 'ShopeePay', amount: 2699, monthKey: 'jun', category: 'shopeePay' },
+      ],
+      debtShopeePay: [{ monthKey: 'jun', monthLabel: 'มิ.ย. 69', amount: 2699 }],
+      debtShopeecrAsh: [],
+      debtKasikorn: [],
+      fixedExpenses: [{ fixedKey: 'none', label: 'ปิดไว้', amount: 0, active: false }],
+      settings: { estimatedIncome: 18000 },
+    });
+
+    const summary = calculateMonthSummary(dashboard, 'jun');
+    const breakdown = buildMonthlyBreakdown(dashboard, 'jun');
+
+    expect(breakdown).toContainEqual(expect.objectContaining({ key: 'shopeePay', amount: 2699 }));
+    expect(summary.debtTotal).toBe(2699);
+    expect(summary.totalExpenses).toBe(2699);
   });
 
   it('uses fixed expenses and estimated income from the spreadsheet payload when present', () => {
@@ -120,8 +142,8 @@ describe('buildMonthlyBreakdown', () => {
     const breakdown = buildMonthlyBreakdown(dashboard, 'may');
 
     expect(breakdown).toEqual([
-      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c', amount: 1620 }),
-      expect.objectContaining({ key: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878', amount: 742 }),
+      expect.objectContaining({ key: 'shopeePay', label: 'ShopeePay', color: '#ff9f1c', amount: 1500 }),
+      expect.objectContaining({ key: 'shopeeEasy', label: 'ShopeeEasy', color: '#ffc878', amount: 700 }),
       expect.objectContaining({ key: 'other', label: 'รายจ่ายอื่นๆ', color: '#c9a8ff', amount: 300 }),
       expect.objectContaining({ key: 'debt-kasikorn', label: 'กสิกร', color: '#50c878', amount: 2500 }),
       expect.objectContaining({ key: 'fixed', label: 'รายจ่ายคงที่', color: '#9edcff', amount: 2850 }),

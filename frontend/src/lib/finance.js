@@ -19,6 +19,7 @@ export const FINANCE_COLORS = {
 export const CATEGORY_OPTIONS = [
   { key: 'shopeePay', label: 'ShopeePay', color: FINANCE_COLORS.shopeePay },
   { key: 'shopeeEasy', label: 'ShopeeEasy', color: FINANCE_COLORS.shopeeEasy },
+  { key: 'kasikorn', label: 'กสิกร', color: FINANCE_COLORS.kasikorn },
   { key: 'other', label: 'อื่นๆ', color: FINANCE_COLORS.other },
 ];
 
@@ -49,18 +50,35 @@ export function chooseActiveMonth(currentMonth, months = []) {
 export function normalizeCategories(items) {
   if (!Array.isArray(items) || items.length === 0) return CATEGORY_OPTIONS;
 
-  const categories = items
+  const inactiveKeys = new Set(
+    items
+      .filter((item) => item.active === false)
+      .map((item) => String(item.categoryKey || item.key || '').trim())
+      .filter(Boolean),
+  );
+  const defaultSort = new Map(CATEGORY_OPTIONS.map((item, index) => [item.key, (index + 1) * 10]));
+  const categories = new Map(
+    CATEGORY_OPTIONS.filter((item) => !inactiveKeys.has(item.key)).map((item, index) => [
+      item.key,
+      { ...item, active: true, sortOrder: defaultSort.get(item.key) || (index + 1) * 10 },
+    ]),
+  );
+
+  items
     .map((item) => ({
       key: String(item.categoryKey || item.key || '').trim(),
       label: String(item.label || item.categoryKey || item.key || '').trim(),
       color: String(item.color || '#aeb7c8').trim(),
       active: item.active !== false,
-      sortOrder: Number(item.sortOrder) || 0,
+      sortOrder: Number(item.sortOrder) || defaultSort.get(String(item.categoryKey || item.key || '').trim()) || 0,
     }))
     .filter((item) => item.key && item.active)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .forEach((item) => {
+      categories.set(item.key, item);
+    });
 
-  return categories.length ? categories : CATEGORY_OPTIONS;
+  const normalized = [...categories.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  return normalized.length ? normalized : CATEGORY_OPTIONS;
 }
 
 export function normalizeCategory(category, categories = CATEGORY_OPTIONS) {
@@ -106,11 +124,8 @@ export function calculateMonthSummary(dashboard, monthKey) {
   const income = incomeValue != null ? Number(incomeValue) || 0 : dashboard.estimatedIncome;
   const expenseTotal = sumByMonth(dashboard.expenses, monthKey);
   const fixedTotal = calculateFixedTotal(dashboard.fixedExpenses);
-  const debtTotal =
-    sumDebtByMonth(dashboard.debtShopeePay, monthKey) +
-    sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey) +
-    sumDebtByMonth(dashboard.debtKasikorn, monthKey);
-  const totalExpenses = expenseTotal + debtTotal + fixedTotal;
+  const totalExpenses = buildMonthlyBreakdown(dashboard, monthKey).reduce((sum, item) => sum + item.amount, 0);
+  const debtTotal = totalExpenses;
   const remaining = income - totalExpenses;
 
   return {
@@ -121,7 +136,6 @@ export function calculateMonthSummary(dashboard, monthKey) {
     fixedTotal,
     totalExpenses,
     remaining,
-    weeklyAllowance: Math.round(remaining / 4),
   };
 }
 
@@ -133,13 +147,19 @@ export function buildMonthlyBreakdown(dashboard, monthKey) {
       key: 'shopeePay',
       label: 'ShopeePay',
       color: BREAKDOWN_COLORS.shopeePay,
-      amount: (expenseTotals.get('shopeePay') || 0) + sumDebtByMonth(dashboard.debtShopeePay, monthKey),
+      amount: combineRecordedAndScheduled(
+        expenseTotals.get('shopeePay') || 0,
+        sumDebtByMonth(dashboard.debtShopeePay, monthKey),
+      ),
     },
     {
       key: 'shopeeEasy',
       label: 'ShopeeEasy',
       color: BREAKDOWN_COLORS.shopeeEasy,
-      amount: (expenseTotals.get('shopeeEasy') || 0) + sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey),
+      amount: combineRecordedAndScheduled(
+        expenseTotals.get('shopeeEasy') || 0,
+        sumDebtByMonth(dashboard.debtShopeecrAsh, monthKey),
+      ),
     },
     {
       key: 'other',
@@ -151,7 +171,10 @@ export function buildMonthlyBreakdown(dashboard, monthKey) {
       key: 'debt-kasikorn',
       label: 'กสิกร',
       color: BREAKDOWN_COLORS.kasikorn,
-      amount: sumDebtByMonth(dashboard.debtKasikorn, monthKey),
+      amount: combineRecordedAndScheduled(
+        expenseTotals.get('kasikorn') || 0,
+        sumDebtByMonth(dashboard.debtKasikorn, monthKey),
+      ),
     },
     {
       key: 'fixed',
@@ -162,6 +185,73 @@ export function buildMonthlyBreakdown(dashboard, monthKey) {
   ];
 
   return rows.filter((item) => item.amount > 0 || item.key === 'other');
+}
+
+export function calculateBudgetPlan(summary, dailyBudget) {
+  const daily = Math.max(0, Number(dailyBudget) || 0);
+  const monthlyDailyBudget = daily * 30;
+  const spendableRemaining = (Number(summary?.income) || 0) - (Number(summary?.debtTotal) || 0) - monthlyDailyBudget;
+
+  return {
+    dailyBudget: daily,
+    monthlyDailyBudget,
+    spendableRemaining,
+  };
+}
+
+export function buildDebtOverviewRows(dashboard, kind) {
+  const debtConfig = {
+    shopeePay: {
+      expenseCategory: 'shopeePay',
+      scheduledItems: dashboard.debtShopeePay || [],
+    },
+    shopeeCrash: {
+      expenseCategory: 'shopeeEasy',
+      scheduledItems: dashboard.debtShopeecrAsh || [],
+    },
+    kasikorn: {
+      expenseCategory: 'kasikorn',
+      scheduledItems: dashboard.debtKasikorn || [],
+    },
+  }[kind];
+  if (!debtConfig) return [];
+
+  const rows = new Map();
+  (debtConfig.scheduledItems || []).forEach((item) => {
+    rows.set(item.monthKey, {
+      monthKey: item.monthKey,
+      monthLabel: item.monthLabel || dashboard.monthLookup?.[item.monthKey] || item.monthKey,
+      scheduledAmount: Number(item.amount) || 0,
+      recordedAmount: 0,
+    });
+  });
+
+  (dashboard.expenses || [])
+    .filter((expense) => expense.category === debtConfig.expenseCategory)
+    .forEach((expense) => {
+      const current = rows.get(expense.monthKey) || {
+        monthKey: expense.monthKey,
+        monthLabel: expense.monthLabel || dashboard.monthLookup?.[expense.monthKey] || expense.monthKey,
+        scheduledAmount: 0,
+        recordedAmount: 0,
+      };
+      rows.set(expense.monthKey, {
+        ...current,
+        recordedAmount: current.recordedAmount + (Number(expense.amount) || 0),
+      });
+    });
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      amount: combineRecordedAndScheduled(row.recordedAmount, row.scheduledAmount),
+    }))
+    .sort((a, b) => {
+      const monthIndexA = dashboard.months?.findIndex((month) => month.key === a.monthKey) ?? -1;
+      const monthIndexB = dashboard.months?.findIndex((month) => month.key === b.monthKey) ?? -1;
+      if (monthIndexA !== monthIndexB) return monthIndexA - monthIndexB;
+      return String(a.monthKey).localeCompare(String(b.monthKey));
+    });
 }
 
 function normalizeFixedExpenses(items) {
@@ -241,6 +331,10 @@ function sumDebtByMonth(items = [], monthKey) {
   return items
     .filter((item) => item.monthKey === monthKey)
     .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+}
+
+function combineRecordedAndScheduled(recordedAmount, scheduledAmount) {
+  return Math.max(Number(recordedAmount) || 0, Number(scheduledAmount) || 0);
 }
 
 function sortRecentExpenses(expenses) {
