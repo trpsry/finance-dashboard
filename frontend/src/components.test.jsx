@@ -57,8 +57,8 @@ describe('view composition', () => {
     expect(screen.queryByRole('heading', { name: 'รายการล่าสุด' })).toBeNull();
     expect(screen.queryByText('ใช้ได้/อาทิตย์')).toBeNull();
     expect(screen.getByLabelText('ใช้เงินต่อวัน').value).toBe('250');
-    expect(screen.getByText('7,500')).toBeTruthy();
-    expect(screen.getByText('คงเหลือใช้')).toBeTruthy();
+    expect(screen.getByText('7,500 บาท')).toBeTruthy();
+    expect(screen.getByText('คงเหลือหลังหักงบ')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /รายจ่ายคงที่/ }));
     expect(screen.getByText('ค่าห้อง/น้ำ/ไฟ')).toBeTruthy();
@@ -73,9 +73,11 @@ describe('view composition', () => {
     render(<AddExpenseView {...baseProps} />);
 
     expect(screen.getByRole('heading', { name: 'บันทึกรายจ่าย' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'รายรับ' }));
     expect(screen.getByRole('heading', { name: 'รายรับจริง' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'รายการล่าสุด' }));
     expect(screen.getByRole('heading', { name: 'รายการล่าสุด' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'กสิกร' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'รายจ่ายประจำ' }));
     expect(screen.getByRole('heading', { name: 'รายจ่ายคงที่' })).toBeTruthy();
   });
 

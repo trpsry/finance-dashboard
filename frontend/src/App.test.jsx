@@ -47,6 +47,8 @@ describe('optimistic mutations', () => {
     fireEvent.change(screen.getByLabelText('จำนวนเงิน'), { target: { value: '123' } });
     fireEvent.click(screen.getByRole('button', { name: 'บันทึกรายจ่าย' }));
 
+    fireEvent.click(screen.getByRole('tab', { name: 'รายการล่าสุด' }));
+
     expect(screen.getByText('123 บาท')).toBeTruthy();
 
     await act(async () => {
