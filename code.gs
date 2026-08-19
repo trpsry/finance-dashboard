@@ -396,20 +396,7 @@ function saveDebtByKind(kind, monthKey, monthLabel, amount) {
 
   return getDebtDataByKind(normalizedKind);
 }
-  }
-  if (!found) {
-    sheet.appendRow([
-      'debt_' + normalizedKind + '_' + monthKey,
-      normalizedKind,
-      label,
-      monthKey,
-      monthLabel || getMonthLabel(monthKey),
-      parseFloat(amount) || 0,
-      stamp,
-      'web'
-    ]);
-    formatRow(sheet, sheet.getLastRow(), DEBT_HEADERS.length);
-  }
+
   return getDebtDataByKind(normalizedKind);
 }
 
