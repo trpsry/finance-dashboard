@@ -48,7 +48,7 @@ export function DashboardView({
     <div className="screen-stack dashboard-screen">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} light />
       <SummaryGrid summary={currentSummary} dailyBudget={dailyBudget} loading={loading} light />
-      <DailyBudgetPlanner dailyBudget={dailyBudget} onChange={onDailyBudgetChange} />
+      <DailyBudgetPlanner dailyBudget={dailyBudget} onChange={onDailyBudgetChange} summary={currentSummary} />
       <CategoryBreakdown
         dashboard={dashboard}
         monthKey={selectedMonth}
@@ -73,10 +73,17 @@ export function AddExpenseView({
   onSaveFixedExpense,
   onDeleteFixedExpense,
 }) {
+  const [tab, setTab] = useState('expense');
+  const tabs = [
+    ['expense', 'รายจ่าย'], ['income', 'รายรับ'], ['fixed', 'รายจ่ายประจำ'], ['recent', 'รายการล่าสุด'],
+  ];
   return (
     <div className="screen-stack">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
-      <section className="panel">
+      <div className="record-tabs" role="tablist" aria-label="ประเภทการบันทึก">
+        {tabs.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}
+      </div>
+      {tab === 'expense' && <section className="panel">
         <div className="section-title">
           <Plus size={20} />
           <div>
@@ -91,27 +98,27 @@ export function AddExpenseView({
           saving={saving}
           onSubmit={onAddExpense}
         />
-      </section>
-      <IncomeEditor
+      </section>}
+      {tab === 'income' && <IncomeEditor
         monthKey={selectedMonth}
         monthLabel={selectedMonthLabel}
         currentValue={dashboard.incomes[selectedMonth]}
         saving={saving}
         onSave={onSaveIncome}
         onClear={onClearIncome}
-      />
-      <FixedExpenseEditor
+      />}
+      {tab === 'fixed' && <FixedExpenseEditor
         items={dashboard.fixedExpenses}
         saving={saving}
         onSave={onSaveFixedExpense}
         onDelete={onDeleteFixedExpense}
-      />
-      <RecentExpenses
+      />}
+      {tab === 'recent' && <RecentExpenses
         expenses={dashboard.recentExpenses}
         categories={dashboard.categories}
         onDelete={onDeleteExpense}
         saving={saving}
-      />
+      />}
     </div>
   );
 }
@@ -214,13 +221,10 @@ function MonthSelector({ months, value, onChange, light = false }) {
 }
 
 function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
-  const budgetPlan = calculateBudgetPlan(summary, dailyBudget);
   const cards = [
+    { label: 'ยอดคงเหลือ', value: summary?.remaining, tone: 'balance', icon: Wallet },
     { label: 'รายรับ', value: summary?.income, tone: 'income', icon: Banknote, suffix: summary?.incomeConfirmed ? '' : '~' },
-    { label: 'หนี้', value: summary?.debtTotal, tone: 'expense', icon: ReceiptText },
-    { label: 'ใช้ต่อวัน', value: budgetPlan.dailyBudget, tone: 'daily', icon: CalendarDays },
-    { label: 'ใช้ 30 วัน', value: budgetPlan.monthlyDailyBudget, tone: 'month-budget', icon: CalendarDays },
-    { label: 'คงเหลือใช้', value: budgetPlan.spendableRemaining, tone: 'balance', icon: Wallet },
+    { label: 'รายจ่ายรวม', value: summary?.totalExpenses, tone: 'expense', icon: ReceiptText },
   ];
 
   return (
@@ -233,8 +237,7 @@ function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
               <Icon size={20} />
               <span>{card.label}</span>
             </div>
-            <strong>{loading ? '...' : `${card.suffix || ''}${formatBaht(card.value)} `}</strong>
-            <small>บาท</small>
+            {loading ? <><span className="skeleton value-skeleton" /><span className="skeleton unit-skeleton" /></> : <><strong>{`${card.suffix || ''}${formatBaht(card.value)} `}</strong><small>บาท</small></>}
           </article>
         );
       })}
@@ -242,8 +245,8 @@ function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
   );
 }
 
-function DailyBudgetPlanner({ dailyBudget, onChange }) {
-  const plan = calculateBudgetPlan({ income: 0, debtTotal: 0 }, dailyBudget);
+function DailyBudgetPlanner({ dailyBudget, onChange, summary }) {
+  const plan = calculateBudgetPlan(summary, dailyBudget);
 
   return (
     <section className="panel dashboard-panel budget-planner">
@@ -266,8 +269,12 @@ function DailyBudgetPlanner({ dailyBudget, onChange }) {
         />
       </label>
       <div className="budget-result">
-        <span>ใช้ต่อวัน x 30</span>
+        <span>งบประมาณ 30 วัน</span>
         <strong>{formatBaht(plan.monthlyDailyBudget)} บาท</strong>
+      </div>
+      <div className="budget-result featured">
+        <span>คงเหลือหลังหักงบ</span>
+        <strong>{formatBaht(plan.spendableRemaining)} บาท</strong>
       </div>
     </section>
   );
@@ -336,17 +343,6 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
         </label>
       </div>
 
-      <label className="field">
-        <span>หมวดหมู่</span>
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          {categories.map((item) => (
-            <option key={item.key} value={item.key}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
       {!compact && (
         <label className="field">
           <span>หมายเหตุ ไม่บังคับ</span>
@@ -354,7 +350,7 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
         </label>
       )}
 
-      <div className="category-chips" aria-label="เลือกหมวดเร็ว">
+      <div className="category-chips" role="radiogroup" aria-label="หมวดหมู่">
         {categories.map((item) => {
           const Icon = CATEGORY_ICONS[item.key] || Tag;
           return (
@@ -362,6 +358,8 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
               className={item.key === category ? 'category-chip active' : 'category-chip'}
               style={{ '--chip-color': item.color }}
               type="button"
+              role="radio"
+              aria-checked={item.key === category}
               key={item.key}
               onClick={() => setCategory(item.key)}
             >

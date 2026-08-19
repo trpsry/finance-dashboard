@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Bell,
   CalendarDays,
   Home,
   Menu,
@@ -8,6 +7,7 @@ import {
   RefreshCw,
   Settings,
 } from 'lucide-react';
+import { pullStatusLabel, usePullToRefresh } from './usePullToRefresh.js';
 import { createApiClient } from './lib/api.js';
 import { calculateMonthSummary, chooseActiveMonth, normalizeDashboard } from './lib/finance.js';
 import {
@@ -64,12 +64,16 @@ export default function App() {
       const data = await client.loadAll();
       setRawData(data);
       setActiveMonth((current) => chooseActiveMonth(current, data.next5Months || []));
+      return true;
     } catch (err) {
       setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
+      return false;
     } finally {
       setLoading(false);
     }
   }, [client]);
+
+  const pull = usePullToRefresh({ onRefresh: loadDashboard, disabled: saving });
 
   useEffect(() => {
     loadDashboard();
@@ -210,6 +214,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div
+        className={`pull-indicator ${pull.status}`}
+        style={{ '--pull-distance': `${pull.distance}px` }}
+        role="status"
+        aria-live="polite"
+        aria-hidden={pull.status === 'idle'}
+      >
+        <RefreshCw size={18} className={pull.status === 'loading' ? 'spin' : ''} />
+        <span>{pullStatusLabel[pull.status]}</span>
+      </div>
       <header className="app-header">
         <button className="icon-button" type="button" aria-label="เมนู">
           <Menu size={24} />
@@ -218,8 +232,9 @@ export default function App() {
           <h1>Dashboard</h1>
           <p>{selectedMonthLabel}</p>
         </div>
-        <button className="status-button" type="button" onClick={loadDashboard} aria-label="รีเฟรชข้อมูล">
-          {loading ? <RefreshCw size={20} className="spin" /> : <Bell size={20} />}
+        <button className="status-button" type="button" onClick={loadDashboard} aria-label={loading ? 'กำลังรีเฟรชข้อมูล' : 'รีเฟรชข้อมูล'} disabled={loading}>
+          <RefreshCw size={19} className={loading ? 'spin' : ''} />
+          <span>{loading ? 'กำลังโหลด' : 'รีเฟรช'}</span>
         </button>
       </header>
 
