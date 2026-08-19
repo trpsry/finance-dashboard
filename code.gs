@@ -362,40 +362,92 @@ function getDebtDataByKind(kind) {
 function saveDebtByKind(kind, monthKey, monthLabel, amount) {
   const normalizedKind = normalizeDebtKind(kind);
   const sheet = getSheet(SHEET_DEBT_SCHEDULE, DEBT_HEADERS);
-  const stamp = nowStamp();
-  const label = getDebtLabel(normalizedKind);
+
   const key = String(monthKey || '').trim();
   const value = parseFloat(amount) || 0;
+  const stamp = nowStamp();
+  const label = getDebtLabel(normalizedKind);
 
-  // ลบข้อมูลเดิมของ kind + monthKey ทั้งหมด
-  // เพื่อให้เหลือเฉพาะยอดล่าสุด 1 รายการ
+  if (!normalizedKind) {
+    throw new Error('ไม่พบประเภทหนี้: ' + kind);
+  }
+
+  if (!key) {
+    throw new Error('ไม่พบ monthKey');
+  }
+
+  // =====================================================
+  // 1. ค้นหาข้อมูลเดิมของ "ประเภทหนี้ + เดือน" 
+  // =====================================================
+
   const data = sheet.getDataRange().getValues();
 
-  for (let i = data.length - 1; i >= 1; i--) {
+  let foundRow = -1;
+
+  for (let i = 1; i < data.length; i++) {
     const rowKind = String(data[i][1] || '').trim();
     const rowMonthKey = String(data[i][3] || '').trim();
 
-    if (rowKind === normalizedKind && rowMonthKey === key) {
-      sheet.deleteRow(i + 1);
+    if (
+      rowKind === normalizedKind &&
+      rowMonthKey === key
+    ) {
+      foundRow = i + 1;
+      break;
     }
   }
 
-  // เขียนยอดล่าสุดเข้าไปใหม่ 1 รายการ
-  sheet.appendRow([
-    'debt_' + normalizedKind + '_' + key,
-    normalizedKind,
-    label,
-    key,
-    monthLabel || getMonthLabel(key),
-    value,
-    stamp,
-    'web'
-  ]);
+  // =====================================================
+  // 2. ถ้ามีอยู่แล้ว → UPDATE แถวเดิม
+  //    ไม่สร้างรายการใหม่
+  // =====================================================
 
-  formatRow(sheet, sheet.getLastRow(), DEBT_HEADERS.length);
+  if (foundRow !== -1) {
 
-  return getDebtDataByKind(normalizedKind);
-}
+    sheet.getRange(foundRow, 1, 1, DEBT_HEADERS.length).setValues([[
+      String(data[foundRow - 1][0]), // id เดิม
+      normalizedKind,
+      label,
+      key,
+      monthLabel || getMonthLabel(key),
+      value,
+      stamp,
+      'web'
+    ]]);
+
+    formatRow(
+      sheet,
+      foundRow,
+      DEBT_HEADERS.length
+    );
+
+  } else {
+
+    // ===================================================
+    // 3. ถ้ายังไม่มี → สร้างแถวใหม่
+    // ===================================================
+
+    sheet.appendRow([
+      'debt_' + normalizedKind + '_' + key,
+      normalizedKind,
+      label,
+      key,
+      monthLabel || getMonthLabel(key),
+      value,
+      stamp,
+      'web'
+    ]);
+
+    formatRow(
+      sheet,
+      sheet.getLastRow(),
+      DEBT_HEADERS.length
+    );
+  }
+
+  // =====================================================
+  // 4. ส่งข้อมูลล่าสุดกลับไปให้ Frontend
+  // =====================================================
 
   return getDebtDataByKind(normalizedKind);
 }
