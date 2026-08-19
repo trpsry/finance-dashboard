@@ -362,20 +362,40 @@ function getDebtDataByKind(kind) {
 function saveDebtByKind(kind, monthKey, monthLabel, amount) {
   const normalizedKind = normalizeDebtKind(kind);
   const sheet = getSheet(SHEET_DEBT_SCHEDULE, DEBT_HEADERS);
-  const data = sheet.getDataRange().getValues();
   const stamp = nowStamp();
   const label = getDebtLabel(normalizedKind);
-  let found = false;
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]) === normalizedKind && String(data[i][3]) === String(monthKey)) {
-      sheet.getRange(i + 1, 3).setValue(label);
-      sheet.getRange(i + 1, 5).setValue(monthLabel || getMonthLabel(monthKey));
-      sheet.getRange(i + 1, 6).setValue(parseFloat(amount) || 0);
-      sheet.getRange(i + 1, 7).setValue(stamp);
-      sheet.getRange(i + 1, 8).setValue('web');
-      found = true;
-      break;
+  const key = String(monthKey || '').trim();
+  const value = parseFloat(amount) || 0;
+
+  // ลบข้อมูลเดิมของ kind + monthKey ทั้งหมด
+  // เพื่อให้เหลือเฉพาะยอดล่าสุด 1 รายการ
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    const rowKind = String(data[i][1] || '').trim();
+    const rowMonthKey = String(data[i][3] || '').trim();
+
+    if (rowKind === normalizedKind && rowMonthKey === key) {
+      sheet.deleteRow(i + 1);
     }
+  }
+
+  // เขียนยอดล่าสุดเข้าไปใหม่ 1 รายการ
+  sheet.appendRow([
+    'debt_' + normalizedKind + '_' + key,
+    normalizedKind,
+    label,
+    key,
+    monthLabel || getMonthLabel(key),
+    value,
+    stamp,
+    'web'
+  ]);
+
+  formatRow(sheet, sheet.getLastRow(), DEBT_HEADERS.length);
+
+  return getDebtDataByKind(normalizedKind);
+}
   }
   if (!found) {
     sheet.appendRow([
