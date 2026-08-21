@@ -48,7 +48,7 @@ export function DashboardView({
     <div className="screen-stack dashboard-screen">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} light />
       <SummaryGrid summary={currentSummary} dailyBudget={dailyBudget} loading={loading} light />
-      <DailyBudgetPlanner dailyBudget={dailyBudget} onChange={onDailyBudgetChange} />
+      <DailyBudgetPlanner summary={currentSummary} dailyBudget={dailyBudget} onChange={onDailyBudgetChange} />
       <CategoryBreakdown
         dashboard={dashboard}
         monthKey={selectedMonth}
@@ -70,48 +70,94 @@ export function AddExpenseView({
   onDeleteExpense,
   onSaveIncome,
   onClearIncome,
+  onSaveDebt,
+  onDeleteDebt,
   onSaveFixedExpense,
   onDeleteFixedExpense,
 }) {
+  const [activeTab, setActiveTab] = useState('expense');
+  const tabs = [
+    { key: 'expense', label: 'รายจ่าย' },
+    { key: 'income', label: 'รายรับ' },
+    { key: 'fixed', label: 'รายจ่ายคงที่' },
+    { key: 'recent', label: 'ล่าสุด' },
+  ];
+
   return (
-    <div className="screen-stack">
+    <div className="screen-stack record-screen">
       <MonthSelector months={dashboard.months} value={selectedMonth} onChange={onSelectMonth} />
-      <section className="panel">
-        <div className="section-title">
-          <Plus size={20} />
-          <div>
-            <h2>บันทึกรายจ่าย</h2>
-            <p>กรอกครั้งเดียว เลือกเดือนและหมวดให้ครบ</p>
-          </div>
-        </div>
-        <ExpenseForm
-          months={dashboard.months}
-          categories={dashboard.categories}
-          defaultMonth={selectedMonth}
+      <div className="record-tabs" role="tablist" aria-label="เลือกประเภทการบันทึก">
+        {tabs.map((tab) => (
+          <button
+            className={activeTab === tab.key ? 'record-tab active' : 'record-tab'}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'expense' && (
+        <>
+          <section className="panel">
+            <div className="section-title">
+              <Plus size={20} />
+              <div>
+                <h2>บันทึกรายจ่าย</h2>
+                <p>ใส่จำนวนเงินก่อน แล้วเลือกหมวด</p>
+              </div>
+            </div>
+            <ExpenseForm
+              months={dashboard.months}
+              categories={dashboard.categories}
+              defaultMonth={selectedMonth}
+              saving={saving}
+              onSubmit={onAddExpense}
+            />
+          </section>
+          <DebtEditor
+            dashboard={dashboard}
+            monthKey={selectedMonth}
+            monthLabel={selectedMonthLabel}
+            saving={saving}
+            onSave={onSaveDebt}
+            onDelete={onDeleteDebt}
+          />
+        </>
+      )}
+
+      {activeTab === 'income' && (
+        <IncomeEditor
+          monthKey={selectedMonth}
+          monthLabel={selectedMonthLabel}
+          currentValue={dashboard.incomes[selectedMonth]}
           saving={saving}
-          onSubmit={onAddExpense}
+          onSave={onSaveIncome}
+          onClear={onClearIncome}
         />
-      </section>
-      <IncomeEditor
-        monthKey={selectedMonth}
-        monthLabel={selectedMonthLabel}
-        currentValue={dashboard.incomes[selectedMonth]}
-        saving={saving}
-        onSave={onSaveIncome}
-        onClear={onClearIncome}
-      />
-      <FixedExpenseEditor
-        items={dashboard.fixedExpenses}
-        saving={saving}
-        onSave={onSaveFixedExpense}
-        onDelete={onDeleteFixedExpense}
-      />
-      <RecentExpenses
-        expenses={dashboard.recentExpenses}
-        categories={dashboard.categories}
-        onDelete={onDeleteExpense}
-        saving={saving}
-      />
+      )}
+
+      {activeTab === 'fixed' && (
+        <FixedExpenseEditor
+          items={dashboard.fixedExpenses}
+          saving={saving}
+          onSave={onSaveFixedExpense}
+          onDelete={onDeleteFixedExpense}
+        />
+      )}
+
+      {activeTab === 'recent' && (
+        <RecentExpenses
+          expenses={dashboard.recentExpenses}
+          categories={dashboard.categories}
+          onDelete={onDeleteExpense}
+          saving={saving}
+        />
+      )}
     </div>
   );
 }
@@ -213,18 +259,15 @@ function MonthSelector({ months, value, onChange, light = false }) {
   );
 }
 
-function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
-  const budgetPlan = calculateBudgetPlan(summary, dailyBudget);
+function SummaryGrid({ summary, loading, light = false }) {
   const cards = [
+    { label: 'คงเหลือ', value: summary?.remaining, tone: 'balance', icon: Wallet },
     { label: 'รายรับ', value: summary?.income, tone: 'income', icon: Banknote, suffix: summary?.incomeConfirmed ? '' : '~' },
-    { label: 'หนี้', value: summary?.debtTotal, tone: 'expense', icon: ReceiptText },
-    { label: 'ใช้ต่อวัน', value: budgetPlan.dailyBudget, tone: 'daily', icon: CalendarDays },
-    { label: 'ใช้ 30 วัน', value: budgetPlan.monthlyDailyBudget, tone: 'month-budget', icon: CalendarDays },
-    { label: 'คงเหลือใช้', value: budgetPlan.spendableRemaining, tone: 'balance', icon: Wallet },
+    { label: 'รายจ่ายรวม', value: summary?.totalExpenses, tone: 'expense', icon: ReceiptText },
   ];
 
   return (
-    <section className={light ? 'summary-grid light' : 'summary-grid'} aria-label="สรุปเดือน">
+    <section className={light ? 'summary-grid light' : 'summary-grid'} aria-label="สรุปเดือน" aria-busy={loading}>
       {cards.map((card) => {
         const Icon = card.icon;
         return (
@@ -233,8 +276,17 @@ function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
               <Icon size={20} />
               <span>{card.label}</span>
             </div>
-            <strong>{loading ? '...' : `${card.suffix || ''}${formatBaht(card.value)} `}</strong>
-            <small>บาท</small>
+            {loading ? (
+              <>
+                <span className="skeleton-line value" />
+                <span className="skeleton-line unit" />
+              </>
+            ) : (
+              <>
+                <strong>{`${card.suffix || ''}${formatBaht(card.value)} `}</strong>
+                <small>บาท</small>
+              </>
+            )}
           </article>
         );
       })}
@@ -242,8 +294,8 @@ function SummaryGrid({ summary, dailyBudget = 0, loading, light = false }) {
   );
 }
 
-function DailyBudgetPlanner({ dailyBudget, onChange }) {
-  const plan = calculateBudgetPlan({ income: 0, debtTotal: 0 }, dailyBudget);
+function DailyBudgetPlanner({ summary, dailyBudget, onChange }) {
+  const plan = calculateBudgetPlan(summary, dailyBudget);
 
   return (
     <section className="panel dashboard-panel budget-planner">
@@ -266,8 +318,14 @@ function DailyBudgetPlanner({ dailyBudget, onChange }) {
         />
       </label>
       <div className="budget-result">
-        <span>ใช้ต่อวัน x 30</span>
-        <strong>{formatBaht(plan.monthlyDailyBudget)} บาท</strong>
+        <div>
+          <span>งบ 30 วัน</span>
+          <strong>{formatBaht(plan.monthlyDailyBudget)} บาท</strong>
+        </div>
+        <div>
+          <span>เงินเหลือหลังวางงบ</span>
+          <strong>{formatBaht(plan.spendableRemaining)} บาท</strong>
+        </div>
       </div>
     </section>
   );
@@ -312,7 +370,7 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
       )}
 
       <div className="form-grid">
-        <label className="field amount-field">
+        <label className="field amount-field prominent">
           <span>จำนวนเงิน</span>
           <input
             type="number"
@@ -336,17 +394,6 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
         </label>
       </div>
 
-      <label className="field">
-        <span>หมวดหมู่</span>
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          {categories.map((item) => (
-            <option key={item.key} value={item.key}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
       {!compact && (
         <label className="field">
           <span>หมายเหตุ ไม่บังคับ</span>
@@ -354,7 +401,7 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
         </label>
       )}
 
-      <div className="category-chips" aria-label="เลือกหมวดเร็ว">
+      <div className="category-chips" role="radiogroup" aria-label="หมวดหมู่">
         {categories.map((item) => {
           const Icon = CATEGORY_ICONS[item.key] || Tag;
           return (
@@ -362,6 +409,8 @@ function ExpenseForm({ months, categories = CATEGORY_OPTIONS, defaultMonth, comp
               className={item.key === category ? 'category-chip active' : 'category-chip'}
               style={{ '--chip-color': item.color }}
               type="button"
+              role="radio"
+              aria-checked={item.key === category}
               key={item.key}
               onClick={() => setCategory(item.key)}
             >
@@ -555,7 +604,7 @@ function IncomeEditor({ monthKey, monthLabel, currentValue, saving, onSave, onCl
           <p>{monthLabel}</p>
         </div>
       </div>
-      <label className="field">
+      <label className="field amount-field prominent">
         <span>รายรับเดือนนี้</span>
         <input type="number" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="16275" />
       </label>
@@ -569,6 +618,83 @@ function IncomeEditor({ monthKey, monthLabel, currentValue, saving, onSave, onCl
       </div>
     </section>
   );
+}
+
+function DebtEditor({ dashboard, monthKey, monthLabel, saving, onSave, onDelete }) {
+  const [kind, setKind] = useState('shopeePay');
+  const currentOption = DEBT_OPTIONS.find((option) => option.key === kind) || DEBT_OPTIONS[0];
+  const currentDebt = getDebtRows(dashboard, kind).find((item) => item.monthKey === monthKey);
+  const [amount, setAmount] = useState(currentDebt?.amount || '');
+
+  useEffect(() => {
+    setAmount(currentDebt?.amount || '');
+  }, [currentDebt?.amount, kind, monthKey]);
+
+  function submit(event) {
+    event.preventDefault();
+    const parsedAmount = Number(amount);
+    if (!monthKey || parsedAmount < 0 || Number.isNaN(parsedAmount)) return;
+    onSave({ kind, monthKey, monthLabel, amount: parsedAmount });
+  }
+
+  return (
+    <section className="panel debt-editor" role="region" aria-label="ยอดหนี้เดือนนี้">
+      <div className="section-title">
+        <Landmark size={20} />
+        <div>
+          <h2>ยอดหนี้เดือนนี้</h2>
+          <p>บันทึกซ้ำเดือนเดิมคือแทนที่ยอดเดิม</p>
+        </div>
+      </div>
+      <div className="debt-tabs" role="radiogroup" aria-label="ประเภทหนี้">
+        {DEBT_OPTIONS.map((option) => (
+          <button
+            className={option.key === kind ? 'debt-tab active' : 'debt-tab'}
+            style={{ '--debt-color': option.color }}
+            type="button"
+            role="radio"
+            aria-checked={option.key === kind}
+            key={option.key}
+            onClick={() => setKind(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <form className="expense-form" onSubmit={submit}>
+        <label className="field amount-field prominent">
+          <span>ยอดหนี้</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="0.00"
+          />
+        </label>
+        <div className="debt-current">
+          <span>{currentOption.label} · {monthLabel}</span>
+          <strong>{formatBaht(currentDebt?.amount)} บาท</strong>
+        </div>
+        <div className="settings-actions">
+          <button className="primary-button" type="submit" disabled={saving || amount === ''}>
+            บันทึกยอดหนี้
+          </button>
+          <button className="ghost-button" type="button" disabled={saving || !currentDebt} onClick={() => onDelete(kind, monthKey)}>
+            ลบยอดหนี้
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function getDebtRows(dashboard, kind) {
+  if (kind === 'shopeeCrash') return dashboard.debtShopeecrAsh || [];
+  if (kind === 'kasikorn') return dashboard.debtKasikorn || [];
+  return dashboard.debtShopeePay || [];
 }
 
 function DebtOverview({ dashboard }) {

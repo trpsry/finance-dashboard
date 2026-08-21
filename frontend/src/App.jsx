@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Bell,
   CalendarDays,
   Home,
-  Menu,
   Plus,
   RefreshCw,
   Settings,
 } from 'lucide-react';
 import { createApiClient } from './lib/api.js';
 import { calculateMonthSummary, chooseActiveMonth, normalizeDashboard } from './lib/finance.js';
+import { usePullToRefresh } from './lib/usePullToRefresh.js';
 import {
   AddExpenseView,
   BottomNav,
@@ -30,25 +29,38 @@ const STALE_GAS_ENDPOINTS = new Set([
 ]);
 
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard', icon: Home },
+  { key: 'dashboard', label: 'ภาพรวม', icon: Home },
   { key: 'add', label: 'บันทึก', icon: Plus },
   { key: 'months', label: 'เดือนต่างๆ', icon: CalendarDays },
   { key: 'settings', label: 'ตั้งค่า', icon: Settings },
 ];
+
+const PAGE_TITLES = {
+  dashboard: 'ภาพรวม',
+  add: 'บันทึกรายการ',
+  months: 'รายเดือน',
+  settings: 'ตั้งค่า',
+};
+
+const DEBT_FIELDS = {
+  shopeePay: 'debtShopeePay',
+  shopeeCrash: 'debtShopeecrAsh',
+  kasikorn: 'debtKasikorn',
+};
 
 export default function App() {
   const [view, setView] = useState('dashboard');
   const [rawData, setRawData] = useState(null);
   const [activeMonth, setActiveMonth] = useState('');
   const [endpoint, setEndpoint] = useState(() => {
-    const storedEndpoint = localStorage.getItem(STORAGE_KEY);
+    const storedEndpoint = readStorage(STORAGE_KEY);
     return !storedEndpoint || STALE_GAS_ENDPOINTS.has(storedEndpoint) ? DEFAULT_ENDPOINT : storedEndpoint;
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [dailyBudget, setDailyBudget] = useState(() => Number(localStorage.getItem(DAILY_BUDGET_STORAGE_KEY)) || 0);
+  const [dailyBudget, setDailyBudget] = useState(() => Number(readStorage(DAILY_BUDGET_STORAGE_KEY)) || 0);
 
   const client = useMemo(() => createApiClient({ endpoint }), [endpoint]);
   const dashboard = useMemo(() => normalizeDashboard(rawData || {}), [rawData]);
@@ -57,32 +69,51 @@ export default function App() {
   const selectedMonthLabel = dashboard.monthLookup[selectedMonth] || 'กำลังโหลด';
   const currentSummary = selectedMonth ? calculateMonthSummary(dashboard, selectedMonth) : null;
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async ({ showSuccess = false, throwOnError = false } = {}) => {
     setLoading(true);
     setError('');
+    if (showSuccess) setNotice('');
     try {
       const data = await client.loadAll();
       setRawData(data);
       setActiveMonth((current) => chooseActiveMonth(current, data.next5Months || []));
+      if (showSuccess) setNotice('โหลดข้อมูลใหม่แล้ว');
     } catch (err) {
       setError(err.message || 'โหลดข้อมูลไม่สำเร็จ');
+      if (throwOnError) throw err;
     } finally {
       setLoading(false);
     }
   }, [client]);
+
+  const refreshDashboard = useCallback(async () => {
+    if (loading || saving) return;
+    await loadDashboard({ showSuccess: true, throwOnError: true });
+  }, [loadDashboard, loading, saving]);
+
+  const pullToRefresh = usePullToRefresh({
+    disabled: loading || saving,
+    onRefresh: refreshDashboard,
+  });
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
   useEffect(() => {
-    if (endpoint) localStorage.setItem(STORAGE_KEY, endpoint);
-    else localStorage.removeItem(STORAGE_KEY);
+    if (endpoint) writeStorage(STORAGE_KEY, endpoint);
+    else removeStorage(STORAGE_KEY);
   }, [endpoint]);
 
   useEffect(() => {
-    localStorage.setItem(DAILY_BUDGET_STORAGE_KEY, String(Number(dailyBudget) || 0));
+    writeStorage(DAILY_BUDGET_STORAGE_KEY, String(Number(dailyBudget) || 0));
   }, [dailyBudget]);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 2600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   async function withOptimisticSave({ optimisticUpdate, request, reconcile, successMessage }) {
     if (saving) return;
@@ -159,6 +190,33 @@ export default function App() {
     });
   }
 
+  async function saveDebt(payload) {
+    const field = DEBT_FIELDS[payload.kind] || DEBT_FIELDS.shopeePay;
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        [field]: upsertDebtItem(current[field], payload),
+      }),
+      request: () => client.saveDebt(payload),
+      reconcile: (current, rows) => ({ ...current, [field]: rows }),
+      successMessage: 'บันทึกยอดหนี้แล้ว',
+    });
+  }
+
+  async function deleteDebt(kind, monthKey) {
+    if (!window.confirm('ลบยอดหนี้เดือนนี้?')) return;
+    const field = DEBT_FIELDS[kind] || DEBT_FIELDS.shopeePay;
+    await withOptimisticSave({
+      optimisticUpdate: (current) => ({
+        ...current,
+        [field]: (current[field] || []).filter((item) => item.monthKey !== monthKey),
+      }),
+      request: () => client.deleteDebt({ kind, monthKey }),
+      reconcile: (current, rows) => ({ ...current, [field]: rows }),
+      successMessage: 'ลบยอดหนี้แล้ว',
+    });
+  }
+
   async function saveFixedExpense(payload) {
     const optimisticKey = payload.fixedKey || `temp-fixed-${Date.now()}`;
     await withOptimisticSave({
@@ -202,6 +260,8 @@ export default function App() {
     onDeleteExpense: deleteExpense,
     onSaveIncome: saveIncome,
     onClearIncome: clearIncome,
+    onSaveDebt: saveDebt,
+    onDeleteDebt: deleteDebt,
     onSaveFixedExpense: saveFixedExpense,
     onDeleteFixedExpense: deleteFixedExpense,
     dailyBudget,
@@ -210,16 +270,24 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <PullToRefreshIndicator pull={pullToRefresh} />
       <header className="app-header">
-        <button className="icon-button" type="button" aria-label="เมนู">
-          <Menu size={24} />
-        </button>
-        <div>
-          <h1>Dashboard</h1>
+        <div className="header-copy">
+          <span>Finance Dashboard</span>
+          <h1>{PAGE_TITLES[view]}</h1>
           <p>{selectedMonthLabel}</p>
         </div>
-        <button className="status-button" type="button" onClick={loadDashboard} aria-label="รีเฟรชข้อมูล">
-          {loading ? <RefreshCw size={20} className="spin" /> : <Bell size={20} />}
+        <button
+          className="status-button"
+          type="button"
+          onClick={() => {
+            refreshDashboard().catch(() => undefined);
+          }}
+          disabled={loading || saving}
+          aria-label="รีเฟรชข้อมูล"
+        >
+          <RefreshCw size={18} className={loading ? 'spin' : ''} />
+          <span>{loading ? 'โหลด' : 'รีเฟรช'}</span>
         </button>
       </header>
 
@@ -246,6 +314,30 @@ export default function App() {
   );
 }
 
+function PullToRefreshIndicator({ pull }) {
+  const labels = {
+    idle: '',
+    pulling: 'ดึงเพื่อรีเฟรช',
+    ready: 'ปล่อยเพื่อรีเฟรช',
+    refreshing: 'กำลังรีเฟรช',
+    complete: 'อัปเดตแล้ว',
+    error: 'รีเฟรชไม่สำเร็จ',
+  };
+  const active = pull.status !== 'idle';
+
+  return (
+    <div
+      className={active ? `pull-refresh ${pull.status} active` : 'pull-refresh'}
+      style={{ '--pull-distance': `${pull.distance}px`, '--pull-progress': pull.progress }}
+      role="status"
+      aria-live="polite"
+    >
+      <RefreshCw size={17} className={pull.status === 'refreshing' ? 'spin' : ''} />
+      <span>{labels[pull.status]}</span>
+    </div>
+  );
+}
+
 export function upsertFixedExpense(items = [], payload) {
   const existingIndex = items.findIndex((item) => item.fixedKey === payload.fixedKey);
   const nextItem = {
@@ -256,6 +348,45 @@ export function upsertFixedExpense(items = [], payload) {
   };
   if (existingIndex < 0) return [...items, nextItem];
   return items.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item));
+}
+
+export function upsertDebtItem(items = [], payload) {
+  const nextItem = {
+    monthKey: payload.monthKey,
+    monthLabel: payload.monthLabel,
+    amount: Number(payload.amount) || 0,
+    updatedAt: new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+  };
+  const existingIndex = items.findIndex((item) => item.monthKey === payload.monthKey);
+  if (existingIndex < 0) return [...items, nextItem];
+  return items.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item));
+}
+
+function readStorage(key) {
+  try {
+    const storage = window.localStorage;
+    return typeof storage?.getItem === 'function' ? storage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    const storage = window.localStorage;
+    if (typeof storage?.setItem === 'function') storage.setItem(key, value);
+  } catch {
+    // Storage may be unavailable in private contexts or restricted test runners.
+  }
+}
+
+function removeStorage(key) {
+  try {
+    const storage = window.localStorage;
+    if (typeof storage?.removeItem === 'function') storage.removeItem(key);
+  } catch {
+    // Storage may be unavailable in private contexts or restricted test runners.
+  }
 }
 
 function formatToday(date = new Date()) {

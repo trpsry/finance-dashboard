@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AddExpenseView, DashboardView, MonthView } from './components.jsx';
 import {
   DEBT_OPTIONS,
@@ -50,15 +50,19 @@ const baseProps = {
 afterEach(cleanup);
 
 describe('view composition', () => {
-  it('keeps Dashboard focused on overview and expands fixed and other details', () => {
+  it('keeps Dashboard focused on primary overview cards and expands fixed and other details', () => {
     render(<DashboardView {...baseProps} />);
 
     expect(screen.queryByRole('heading', { name: 'บันทึกรายจ่าย' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'รายการล่าสุด' })).toBeNull();
     expect(screen.queryByText('ใช้ได้/อาทิตย์')).toBeNull();
+    expect(screen.getByText('คงเหลือ')).toBeTruthy();
+    expect(screen.getByText('รายรับ')).toBeTruthy();
+    expect(screen.getByText('รายจ่ายรวม')).toBeTruthy();
+    expect(screen.queryByText('ใช้ต่อวัน')).toBeNull();
     expect(screen.getByLabelText('ใช้เงินต่อวัน').value).toBe('250');
-    expect(screen.getByText('7,500')).toBeTruthy();
-    expect(screen.getByText('คงเหลือใช้')).toBeTruthy();
+    expect(screen.getByText('งบ 30 วัน')).toBeTruthy();
+    expect(screen.getByText('เงินเหลือหลังวางงบ')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /รายจ่ายคงที่/ }));
     expect(screen.getByText('ค่าห้อง/น้ำ/ไฟ')).toBeTruthy();
@@ -69,14 +73,24 @@ describe('view composition', () => {
     expect(screen.getByText('500 บาท')).toBeTruthy();
   });
 
-  it('moves income and recent expenses to the record view', () => {
+  it('splits the record view into Expense, Income, Fixed expense, and Recent entries tabs', () => {
     render(<AddExpenseView {...baseProps} />);
 
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(tabs).toEqual(['รายจ่าย', 'รายรับ', 'รายจ่ายคงที่', 'ล่าสุด']);
+
     expect(screen.getByRole('heading', { name: 'บันทึกรายจ่าย' })).toBeTruthy();
+    expect(within(screen.getByRole('radiogroup', { name: 'หมวดหมู่' })).getByRole('radio', { name: 'กสิกร' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'รายรับจริง' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'รายรับ' }));
     expect(screen.getByRole('heading', { name: 'รายรับจริง' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'รายการล่าสุด' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'กสิกร' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'รายจ่ายคงที่' }));
     expect(screen.getByRole('heading', { name: 'รายจ่ายคงที่' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'ล่าสุด' }));
+    expect(screen.getByRole('heading', { name: 'รายการล่าสุด' })).toBeTruthy();
   });
 
   it('removes edit forms from the month view and shows one debt group at a time', () => {

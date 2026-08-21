@@ -98,8 +98,24 @@ function createDemoClient() {
       demo.incomes[monthKey] = null;
       return structuredClone(demo.incomes);
     },
-    saveDebt: async () => [],
-    deleteDebt: async () => [],
+    saveDebt: async ({ kind, monthKey, monthLabel, amount }) => {
+      const field = debtFieldForKind(kind);
+      const existingIndex = demo[field].findIndex((item) => item.monthKey === monthKey);
+      const row = {
+        monthKey,
+        monthLabel,
+        amount: Number(amount) || 0,
+        updatedAt: new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      };
+      if (existingIndex >= 0) demo[field][existingIndex] = { ...demo[field][existingIndex], ...row };
+      else demo[field].push(row);
+      return structuredClone(demo[field]);
+    },
+    deleteDebt: async ({ kind, monthKey }) => {
+      const field = debtFieldForKind(kind);
+      demo[field] = demo[field].filter((item) => item.monthKey !== monthKey);
+      return structuredClone(demo[field]);
+    },
     saveFixedExpense: async (payload) => {
       const key = payload.fixedKey || `fixed-${Date.now()}`;
       const existingIndex = demo.fixedExpenses.findIndex((item) => item.fixedKey === key);
@@ -120,4 +136,10 @@ function createDemoClient() {
       return structuredClone(demo.fixedExpenses);
     },
   };
+}
+
+function debtFieldForKind(kind) {
+  if (kind === 'shopeeCrash') return 'debtShopeecrAsh';
+  if (kind === 'kasikorn') return 'debtKasikorn';
+  return 'debtShopeePay';
 }
